@@ -4,7 +4,7 @@ import fs from 'fs';
 import { INITIAL_MARKETS, INITIAL_ACHIEVEMENTS, INITIAL_SPORTS_EVENTS } from './constants';
 import bcrypt from 'bcryptjs';
 
-const DB_PATH = path.join(process.cwd(), 'prediction_arena.db');
+const DB_PATH = process.env.DB_PATH || (process.env.VERCEL ? path.join('/tmp', 'prediction_arena.db') : path.join(process.cwd(), 'prediction_arena.db'));
 
 // Global singleton to prevent multiple instances during Next.js hot-reloading
 declare global {
@@ -18,8 +18,14 @@ function getDatabase(): Database.Database {
   }
 
   const db = new Database(DB_PATH);
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
+  try {
+    db.pragma('journal_mode = WAL');
+  } catch {
+    db.pragma('journal_mode = DELETE');
+  }
+  try {
+    db.pragma('foreign_keys = ON');
+  } catch {}
 
   initSchema(db);
   seedInitialData(db);
