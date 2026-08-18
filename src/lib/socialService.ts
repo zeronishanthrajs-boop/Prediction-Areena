@@ -138,7 +138,7 @@ export class SocialService {
   }
 
   /**
-   * Create a custom Private Room
+   * Create a custom Private Room with auto-generated or custom room code
    */
   static createPrivateRoom(params: {
     creatorId: string;
@@ -146,9 +146,24 @@ export class SocialService {
     marketId: string;
     rounds: number;
     roundDuration?: number;
+    customRoomCode?: string;
   }): { success: boolean; room?: PrivateRoom; error?: string } {
-    const { creatorId, name, marketId, rounds, roundDuration = 30 } = params;
-    const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const { creatorId, name, marketId, rounds, roundDuration = 30, customRoomCode } = params;
+    
+    let roomCode = customRoomCode?.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!roomCode || roomCode.length < 3) {
+      roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+
+    // Check code collision
+    const existing = db.prepare('SELECT id FROM private_rooms WHERE room_code = ?').get(roomCode);
+    if (existing) {
+      if (customRoomCode) {
+        return { success: false, error: 'Room code already taken. Please choose another or generate a new code.' };
+      }
+      roomCode = `${roomCode}${Math.floor(Math.random() * 90 + 10)}`;
+    }
+
     const id = `room-${crypto.randomUUID()}`;
     const now = new Date().toISOString();
 
@@ -169,6 +184,30 @@ export class SocialService {
       participants_count: 1,
       created_at: now,
     };
+
+    return { success: true, room };
+  }
+
+  /**
+   * Join an existing Private Room by Room Code
+   */
+  static joinPrivateRoom(roomCode: string, userId: string): { success: boolean; room?: PrivateRoom; error?: string } {
+    const sanitizedCode = roomCode.trim().toUpperCase();
+    const room = db.prepare('SELECT * FROM private_rooms WHERE room_code = ?').get(sanitizedCode) as PrivateRoom | undefined;
+
+    if (!room) {
+      return { success: false, error: `No private room found with code "${sanitizedCode}"` };
+    }
+
+    if (room.status === 'FINISHED') {
+      return { success: false, error: 'This room match has already concluded.' };
+    }
+
+    // Increment participants count if joining user is not creator
+    if (room.creator_id !== userId) {
+      db.prepare('UPDATE private_rooms SET participants_count = participants_count + 1 WHERE id = ?').run(room.id);
+      room.participants_count += 1;
+    }
 
     return { success: true, room };
   }

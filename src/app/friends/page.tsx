@@ -43,9 +43,15 @@ export default function FriendsPage() {
   const [roomName, setRoomName] = useState('');
   const [roomRounds, setRoomRounds] = useState<number>(10);
   const [roomMarket, setRoomMarket] = useState<string>('ai-index');
+  const [customRoomCode, setCustomRoomCode] = useState('');
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
 
+  const [joinRoomCode, setJoinRoomCode] = useState('');
+  const [isJoiningRoom, setIsJoiningRoom] = useState(false);
+  const [createdRoomCode, setCreatedRoomCode] = useState<string | null>(null);
+
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
 
   const loadSocialData = async () => {
     if (!user) return;
@@ -191,15 +197,18 @@ export default function FriendsPage() {
           name: roomName,
           marketId: roomMarket,
           rounds: roomRounds,
+          customRoomCode: customRoomCode.trim() || undefined,
         }),
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
         sounds.playWinFanfare();
+        setCreatedRoomCode(data.room.room_code);
         setFeedback({ type: 'success', text: `Private Room created! Invite Code: ${data.room.room_code}` });
         setIsCreateRoomOpen(false);
         setRoomName('');
+        setCustomRoomCode('');
         setActiveTab('rooms');
         loadSocialData();
       } else {
@@ -211,6 +220,36 @@ export default function FriendsPage() {
       setIsCreatingRoom(false);
     }
   };
+
+  const handleJoinRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!joinRoomCode.trim() || !user) return;
+    setIsJoiningRoom(true);
+    sounds.playClick();
+
+    try {
+      const res = await fetch('/api/social/rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'JOIN', roomCode: joinRoomCode.trim() }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        sounds.playWinFanfare();
+        setFeedback({ type: 'success', text: `Joined room "${data.room.name}" (${data.room.room_code}) successfully!` });
+        setJoinRoomCode('');
+        loadSocialData();
+      } else {
+        setFeedback({ type: 'error', text: data.error || 'Room code not found' });
+      }
+    } catch {
+      setFeedback({ type: 'error', text: 'Network error joining room' });
+    } finally {
+      setIsJoiningRoom(false);
+    }
+  };
+
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 animate-fade-in">
@@ -510,54 +549,102 @@ export default function FriendsPage() {
 
       {/* TAB 3: PRIVATE ROOMS */}
       {activeTab === 'rooms' && (
-        <div className="bg-[#0d111a] border border-white/[0.08] rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Lock className="w-5 h-5 text-cyan-400" /> Private Custom Rooms
-              </h3>
-              <p className="text-xs text-slate-400">Join a private lobby with an invite code</p>
-            </div>
-            <button
-              onClick={() => setIsCreateRoomOpen(true)}
-              className="px-4 py-2 rounded-xl bg-cyan-500 text-black font-extrabold text-xs"
-            >
-              + Host Room
-            </button>
-          </div>
+        <div className="space-y-4">
 
-          {rooms.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-xs">
-              No private rooms currently hosted. Click &quot;Host Room&quot; to create your own!
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {rooms.map((rm) => (
-                <div key={rm.id} className="bg-[#131926] border border-white/[0.06] rounded-2xl p-4 flex flex-col justify-between gap-3">
-                  <div>
-                    <span className="text-[10px] font-mono font-extrabold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded">
-                      CODE: {rm.room_code}
-                    </span>
-                    <h4 className="text-sm font-bold text-white mt-2">{rm.name}</h4>
-                    <span className="text-xs text-slate-400">{rm.rounds} Rounds • {rm.round_duration}s per call</span>
-                  </div>
-                  <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs">
-                    <span className="text-slate-400">{rm.participants_count} Players</span>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(rm.room_code);
-                        sounds.playClick();
-                        setFeedback({ type: 'success', text: `Room Code ${rm.room_code} copied to clipboard!` });
-                      }}
-                      className="text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1"
-                    >
-                      <Share2 className="w-3.5 h-3.5" /> Copy Code
-                    </button>
-                  </div>
-                </div>
-              ))}
+          {/* Created Room Code banner */}
+          {createdRoomCode && (
+            <div className="bg-cyan-500/10 border border-cyan-500/40 rounded-2xl p-4 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs text-cyan-300 font-semibold mb-0.5">Your room is live! Share this code:</p>
+                <span className="text-2xl font-black font-mono text-white tracking-widest">{createdRoomCode}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(createdRoomCode);
+                    sounds.playClick();
+                    setFeedback({ type: 'success', text: 'Room code copied!' });
+                  }}
+                  className="px-3 py-2 rounded-xl bg-cyan-500 text-black font-extrabold text-xs flex items-center gap-1"
+                >
+                  <Share2 className="w-3.5 h-3.5" /> Copy
+                </button>
+                <button onClick={() => setCreatedRoomCode(null)} className="text-slate-500 hover:text-slate-300 p-1">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           )}
+
+          <div className="bg-[#0d111a] border border-white/[0.08] rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Lock className="w-5 h-5 text-cyan-400" /> Private Custom Rooms
+                </h3>
+                <p className="text-xs text-slate-400">Host a private lobby or join one with an invite code</p>
+              </div>
+              <button
+                onClick={() => setIsCreateRoomOpen(true)}
+                className="px-4 py-2 rounded-xl bg-cyan-500 text-black font-extrabold text-xs"
+              >
+                + Host Room
+              </button>
+            </div>
+
+            {/* Join by Code */}
+            <form onSubmit={handleJoinRoom} className="flex items-center gap-2 bg-[#131926] border border-white/10 rounded-2xl p-3">
+              <Lock className="w-4 h-4 text-slate-500 flex-shrink-0" />
+              <input
+                type="text"
+                value={joinRoomCode}
+                onChange={(e) => setJoinRoomCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))}
+                placeholder="Enter Room Code (e.g. ARENA1)"
+                className="flex-1 bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none font-mono tracking-widest"
+                maxLength={8}
+              />
+              <button
+                type="submit"
+                disabled={isJoiningRoom || joinRoomCode.length < 3}
+                className="px-3 py-1.5 rounded-xl bg-cyan-500 disabled:opacity-40 text-black font-extrabold text-xs flex items-center gap-1"
+              >
+                {isJoiningRoom ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Join'}
+              </button>
+            </form>
+
+            {rooms.length === 0 ? (
+              <div className="text-center py-10 text-slate-400 text-xs">
+                No private rooms currently hosted. Click &quot;Host Room&quot; to create your own!
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {rooms.map((rm) => (
+                  <div key={rm.id} className="bg-[#131926] border border-white/[0.06] rounded-2xl p-4 flex flex-col justify-between gap-3">
+                    <div>
+                      <span className="text-[10px] font-mono font-extrabold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded">
+                        CODE: {rm.room_code}
+                      </span>
+                      <h4 className="text-sm font-bold text-white mt-2">{rm.name}</h4>
+                      <span className="text-xs text-slate-400">{rm.rounds} Rounds • {rm.round_duration}s per call</span>
+                    </div>
+                    <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs">
+                      <span className="text-slate-400">{rm.participants_count} Players</span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(rm.room_code);
+                          sounds.playClick();
+                          setFeedback({ type: 'success', text: `Room Code ${rm.room_code} copied to clipboard!` });
+                        }}
+                        className="text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1"
+                      >
+                        <Share2 className="w-3.5 h-3.5" /> Copy Code
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -680,6 +767,30 @@ export default function FriendsPage() {
                   className="w-full bg-[#131926] border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none"
                 />
               </div>
+
+              <div>
+                <label className="text-xs text-slate-300 font-semibold block mb-1">
+                  Room Code <span className="text-slate-500 font-normal">(optional — leave blank to auto-generate)</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={customRoomCode}
+                    onChange={(e) => setCustomRoomCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))}
+                    placeholder="e.g. ARENA1"
+                    maxLength={8}
+                    className="flex-1 bg-[#131926] border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none font-mono tracking-widest"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setCustomRoomCode(Math.random().toString(36).substring(2, 8).toUpperCase())}
+                    className="px-3 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 text-xs font-bold whitespace-nowrap border border-white/10"
+                  >
+                    ↻ Random
+                  </button>
+                </div>
+              </div>
+
 
               <button
                 type="submit"
