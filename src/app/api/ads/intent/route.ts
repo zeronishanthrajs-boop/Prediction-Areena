@@ -22,7 +22,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
     }
 
-    const intent = AdRewardService.generateAdIntent(
+    const intent = await AdRewardService.generateAdIntent(
       session.user.id,
       parsed.data.rewardType,
       parsed.data.amount

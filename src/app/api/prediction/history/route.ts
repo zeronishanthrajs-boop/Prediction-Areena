@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/auth';
 import { PredictionService } from '@/lib/predictionService';
-import { db } from '@/lib/db';
+import { query } from '@/lib/db';
 
 export async function GET(request: Request) {
   try {
@@ -11,15 +11,14 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '30', 10);
 
     if (scope === 'recent-rounds') {
-      // Return recent resolved rounds across the platform
-      const rounds = db.prepare(`
+      const rounds = await query(`
         SELECT r.*, m.name as market_name, m.symbol as market_symbol
         FROM market_rounds r
         JOIN markets m ON r.market_id = m.id
         WHERE r.status = 'RESOLVED'
         ORDER BY r.end_time DESC
         LIMIT ?
-      `).all(limit);
+      `, [limit]);
       return NextResponse.json({ rounds });
     }
 
@@ -27,7 +26,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ predictions: [] });
     }
 
-    const predictions = PredictionService.getUserPredictions(session.user.id, limit);
+    const predictions = await PredictionService.getUserPredictions(session.user.id, limit);
     return NextResponse.json({ predictions });
   } catch (error) {
     console.error('Prediction history error:', error);

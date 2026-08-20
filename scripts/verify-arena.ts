@@ -1,4 +1,4 @@
-import { db } from '../src/lib/db';
+import { queryOne, ensureDbInitialized } from '../src/lib/db';
 import { WalletService } from '../src/lib/walletService';
 import { PredictionService } from '../src/lib/predictionService';
 import { AdRewardService } from '../src/lib/adRewardService';
@@ -10,6 +10,8 @@ async function runTestSuite() {
   console.log('====================================================');
   console.log('   PREDICTION ARENA — END-TO-END VERIFICATION SUITE  ');
   console.log('====================================================\n');
+
+  await ensureDbInitialized();
 
   let passed = 0;
   let failed = 0;
@@ -27,10 +29,10 @@ async function runTestSuite() {
   // 1. TEST WALLET TRANSACTIONS & STARTING BALANCE
   console.log('\n--- 1. Wallet & ACID Transactions ---');
   const testUserId = 'usr-alex-pro';
-  const initialWallet = WalletService.getWallet(testUserId);
+  const initialWallet = await WalletService.getWallet(testUserId);
   assert(initialWallet !== null && initialWallet.balance > 0, 'User wallet exists and has positive balance');
 
-  const debitRes = WalletService.mutateBalance({
+  const debitRes = await WalletService.mutateBalance({
     userId: testUserId,
     amount: -500,
     type: 'PREDICTION_STAKE',
@@ -38,7 +40,7 @@ async function runTestSuite() {
   });
   assert(debitRes.success && debitRes.wallet?.balance === (initialWallet?.balance || 0) - 500, 'Atomic stake debit works');
 
-  const creditRes = WalletService.mutateBalance({
+  const creditRes = await WalletService.mutateBalance({
     userId: testUserId,
     amount: 950,
     type: 'PREDICTION_WIN',
@@ -48,13 +50,13 @@ async function runTestSuite() {
 
   // Idempotency check
   const idempotencyKey = `test-idemp-${Date.now()}`;
-  const tx1 = WalletService.mutateBalance({
+  const tx1 = await WalletService.mutateBalance({
     userId: testUserId,
     amount: 100,
     type: 'QUEST_REWARD',
     idempotencyKey,
   });
-  const tx2 = WalletService.mutateBalance({
+  const tx2 = await WalletService.mutateBalance({
     userId: testUserId,
     amount: 100,
     type: 'QUEST_REWARD',
@@ -71,7 +73,7 @@ async function runTestSuite() {
 
   // 3. TEST PREDICTION PLACEMENT & SETTLEMENT
   console.log('\n--- 3. Prediction Locking & Outcome Math ---');
-  const predResult = PredictionService.placePrediction({
+  const predResult = await PredictionService.placePrediction({
     userId: testUserId,
     marketId: 'ai-index',
     direction: 'UP',
@@ -82,18 +84,18 @@ async function runTestSuite() {
   // Test resolution logic
   if (predResult.prediction) {
     const roundId = predResult.prediction.round_id;
-    PredictionService.resolveRound(roundId, 10000, 10050, 'UP');
-    const updatedPred = db.prepare('SELECT * FROM predictions WHERE id = ?').get(predResult.prediction.id) as { result: string; payout: number };
-    assert(updatedPred && updatedPred.result === 'WIN' && updatedPred.payout === 380, 'Round resolution awarded WIN and 1.90x payout');
+    await PredictionService.resolveRound(roundId, 10000, 10050, 'UP');
+    const updatedPred = await queryOne<{ result: string; payout: number }>('SELECT result, payout FROM predictions WHERE id = ?', [predResult.prediction.id]);
+    assert(updatedPred !== null && updatedPred.result === 'WIN' && updatedPred.payout === 380, 'Round resolution awarded WIN and 1.90x payout');
   }
 
   // 4. TEST REWARDED ADS VERIFICATION & ANTI-REPLAY
   console.log('\n--- 4. Rewarded Ads Nonce Verification ---');
-  const intent = AdRewardService.generateAdIntent(testUserId, 'CHALLENGE_BONUS', 500);
+  const intent = await AdRewardService.generateAdIntent(testUserId, 'CHALLENGE_BONUS', 500);
   assert(Boolean(intent.nonce && intent.signature), 'Generated secure signed ad intent');
 
   // First claim (valid)
-  const claim1 = AdRewardService.verifyAndCreditReward({
+  const claim1 = await AdRewardService.verifyAndCreditReward({
     nonce: intent.nonce,
     userId: testUserId,
     signature: intent.signature,
@@ -101,7 +103,7 @@ async function runTestSuite() {
   assert(claim1.success && claim1.coinsAwarded === 500, 'Verified ad signature and credited reward');
 
   // Replay claim (must be rejected)
-  const claim2 = AdRewardService.verifyAndCreditReward({
+  const claim2 = await AdRewardService.verifyAndCreditReward({
     nonce: intent.nonce,
     userId: testUserId,
     signature: intent.signature,
@@ -110,13 +112,13 @@ async function runTestSuite() {
 
   // 5. TEST SOCIAL & CHALLENGES
   console.log('\n--- 5. Social Friends & 1v1 Challenges ---');
-  const searchResults = SocialService.searchUsers('usr-admin-01', 'Alex');
+  const searchResults = await SocialService.searchUsers('usr-admin-01', 'Alex');
   assert(searchResults.length > 0 && searchResults[0].username === 'Alex_Quant', 'User search finds accounts by query');
 
-  const friends = SocialService.getFriends('usr-admin-01');
+  const friends = await SocialService.getFriends('usr-admin-01');
   assert(friends.length > 0, 'Friend list relationship query functional');
 
-  const challenge = SocialService.createChallenge({
+  const challenge = await SocialService.createChallenge({
     creatorId: 'usr-admin-01',
     opponentId: 'usr-alex-pro',
     marketId: 'ai-index',
@@ -126,11 +128,11 @@ async function runTestSuite() {
 
   // 6. TEST SPORTS LOBBY
   console.log('\n--- 6. Sports Lobby Predictions ---');
-  const sportsEvents = SportsService.getEvents();
+  const sportsEvents = await SportsService.getEvents();
   assert(sportsEvents.length > 0, 'Sports lobby fixtures populated');
 
   const firstEvent = sportsEvents[0];
-  const sportsPred = SportsService.placeSportsPrediction({
+  const sportsPred = await SportsService.placeSportsPrediction({
     userId: testUserId,
     eventId: firstEvent.id,
     selectedOption: firstEvent.team_a,

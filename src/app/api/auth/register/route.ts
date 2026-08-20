@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { queryOne, getDb, ensureDbInitialized } from '@/lib/db';
 import { hashPassword, createSessionToken, setSessionCookie, getRandomAvatar } from '@/lib/auth';
 import { z } from 'zod';
 import crypto from 'crypto';
@@ -22,7 +22,11 @@ export async function POST(request: Request) {
     const { username, email, password } = parsed.data;
 
     // Check unique username and email
-    const existing = db.prepare('SELECT id, username, email FROM users WHERE username = ? OR email = ?').get(username, email) as { username: string; email: string } | undefined;
+    const existing = await queryOne<{ username: string; email: string }>(
+      'SELECT id, username, email FROM users WHERE username = ? OR email = ?',
+      [username, email]
+    );
+
     if (existing) {
       if (existing.username.toLowerCase() === username.toLowerCase()) {
         return NextResponse.json({ error: 'Username is already taken' }, { status: 409 });
@@ -36,33 +40,35 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
     const STARTING_BALANCE = 10000;
 
-    // Atomic user & wallet creation with 10,000 Starting Practice Coins
-    const tx = db.transaction(() => {
-      db.prepare(`
-        INSERT INTO users (id, username, email, password_hash, avatar_url, xp, level, rating, current_streak, best_streak, total_predictions, total_wins, daily_streak, role, is_banned, created_at)
-        VALUES (?, ?, ?, ?, ?, 0, 1, 1200, 0, 0, 0, 0, 0, 'user', 0, ?)
-      `).run(userId, username, email, passwordHash, avatarUrl, now);
+    await ensureDbInitialized();
+    const db = getDb();
 
-      db.prepare(`
-        INSERT INTO wallets (id, user_id, balance, lifetime_earned, lifetime_spent, updated_at)
-        VALUES (?, ?, ?, ?, 0, ?)
-      `).run(`wal-${userId}`, userId, STARTING_BALANCE, STARTING_BALANCE, now);
-
-      db.prepare(`
-        INSERT INTO wallet_transactions (id, user_id, type, amount, balance_before, balance_after, idempotency_key, metadata, created_at)
-        VALUES (?, ?, 'STARTING_GRANT', ?, 0, ?, ?, ?, ?)
-      `).run(
-        `tx-start-${userId}`,
-        userId,
-        STARTING_BALANCE,
-        STARTING_BALANCE,
-        `start-grant-${userId}`,
-        JSON.stringify({ reason: 'New Player 10,000 Practice Coins Welcome Bonus' }),
-        now
-      );
-    });
-
-    tx();
+    // Atomic batch insertion
+    await db.batch([
+      {
+        sql: `INSERT INTO users (id, username, email, password_hash, avatar_url, xp, level, rating, current_streak, best_streak, total_predictions, total_wins, daily_streak, role, is_banned, created_at)
+              VALUES (?, ?, ?, ?, ?, 0, 1, 1200, 0, 0, 0, 0, 0, 'user', 0, ?)`,
+        args: [userId, username, email, passwordHash, avatarUrl, now],
+      },
+      {
+        sql: `INSERT INTO wallets (id, user_id, balance, lifetime_earned, lifetime_spent, updated_at)
+              VALUES (?, ?, ?, ?, 0, ?)`,
+        args: [`wal-${userId}`, userId, STARTING_BALANCE, STARTING_BALANCE, now],
+      },
+      {
+        sql: `INSERT INTO wallet_transactions (id, user_id, type, amount, balance_before, balance_after, idempotency_key, metadata, created_at)
+              VALUES (?, ?, 'STARTING_GRANT', ?, 0, ?, ?, ?, ?)`,
+        args: [
+          `tx-start-${userId}`,
+          userId,
+          STARTING_BALANCE,
+          STARTING_BALANCE,
+          `start-grant-${userId}`,
+          JSON.stringify({ reason: 'New Player 10,000 Practice Coins Welcome Bonus' }),
+          now
+        ],
+      }
+    ], 'write');
 
     const token = await createSessionToken({
       userId,

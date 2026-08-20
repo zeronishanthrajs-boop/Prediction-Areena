@@ -1,4 +1,4 @@
-import { db } from './db';
+import { queryOne, execute, getDb, ensureDbInitialized } from './db';
 import { WalletService } from './walletService';
 import crypto from 'crypto';
 
@@ -18,7 +18,7 @@ export class AdRewardService {
    * Step 1: Client requests an Ad Intent before viewing an ad.
    * Server generates a signed nonce with expiration and stores pending intent.
    */
-  static generateAdIntent(userId: string, rewardType: 'DOUBLE_DAILY' | 'REFILL' | 'CHALLENGE_BONUS', amount: number): AdIntent {
+  static async generateAdIntent(userId: string, rewardType: 'DOUBLE_DAILY' | 'REFILL' | 'CHALLENGE_BONUS', amount: number): Promise<AdIntent> {
     const nonce = `ad-nonce-${crypto.randomUUID()}`;
     const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minute validity window
 
@@ -30,10 +30,10 @@ export class AdRewardService {
 
     const now = new Date().toISOString();
 
-    db.prepare(`
+    await execute(`
       INSERT INTO ad_intents (nonce, user_id, reward_type, amount, status, expires_at, created_at)
       VALUES (?, ?, ?, ?, 'PENDING', ?, ?)
-    `).run(nonce, userId, rewardType, amount, expiresAt, now);
+    `, [nonce, userId, rewardType, amount, expiresAt, now]);
 
     return {
       nonce,
@@ -49,22 +49,22 @@ export class AdRewardService {
    * Step 2: Client or Ad Callback verifies ad completion.
    * Server validates signature, checks nonce uniqueness, ensures it was not previously claimed, and credits Practice Coins atomically.
    */
-  static verifyAndCreditReward(params: {
+  static async verifyAndCreditReward(params: {
     nonce: string;
     userId: string;
     signature: string;
-  }): { success: boolean; coinsAwarded?: number; error?: string } {
+  }): Promise<{ success: boolean; coinsAwarded?: number; error?: string }> {
     const { nonce, userId, signature } = params;
 
     // 1. Fetch pending intent
-    const intent = db.prepare('SELECT * FROM ad_intents WHERE nonce = ?').get(nonce) as {
+    const intent = await queryOne<{
       nonce: string;
       user_id: string;
       reward_type: string;
       amount: number;
       status: string;
       expires_at: number;
-    } | undefined;
+    }>('SELECT * FROM ad_intents WHERE nonce = ?', [nonce]);
 
     if (!intent) {
       return { success: false, error: 'Invalid or expired ad verification token' };
@@ -92,20 +92,21 @@ export class AdRewardService {
       return { success: false, error: 'Invalid ad verification signature' };
     }
 
-    // 3. Mark intent as CLAIMED inside atomic transaction & credit wallet
-    const tx = db.transaction(() => {
-      db.prepare("UPDATE ad_intents SET status = 'CLAIMED' WHERE nonce = ?").run(nonce);
+    // 3. Mark intent as CLAIMED & credit wallet
+    try {
+      await ensureDbInitialized();
+      await execute("UPDATE ad_intents SET status = 'CLAIMED' WHERE nonce = ?", [nonce]);
 
       if (intent.reward_type === 'DOUBLE_DAILY') {
-        const dailyResult = WalletService.claimDailyReward(userId, true);
+        const dailyResult = await WalletService.claimDailyReward(userId, true);
         if (!dailyResult.success) throw new Error(dailyResult.error);
-        return dailyResult.rewardAmount || intent.amount;
+        return { success: true, coinsAwarded: dailyResult.rewardAmount || intent.amount };
       } else if (intent.reward_type === 'REFILL') {
-        const refillResult = WalletService.refillEmptyBalance(userId);
+        const refillResult = await WalletService.refillEmptyBalance(userId);
         if (!refillResult.success) throw new Error(refillResult.error);
-        return refillResult.refillAmount || intent.amount;
+        return { success: true, coinsAwarded: refillResult.refillAmount || intent.amount };
       } else {
-        const creditResult = WalletService.mutateBalance({
+        const creditResult = await WalletService.mutateBalance({
           userId,
           amount: intent.amount,
           type: 'REWARDED_AD',
@@ -113,13 +114,8 @@ export class AdRewardService {
           metadata: { rewardType: intent.reward_type, nonce },
         });
         if (!creditResult.success) throw new Error(creditResult.error);
-        return intent.amount;
+        return { success: true, coinsAwarded: intent.amount };
       }
-    });
-
-    try {
-      const coinsAwarded = tx();
-      return { success: true, coinsAwarded };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to credit ad reward';
       return { success: false, error: msg };

@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
     const { marketId, direction, stake, idempotencyKey } = parsed.data;
 
-    const result = PredictionService.placePrediction({
+    const result = await PredictionService.placePrediction({
       userId: session.user.id,
       marketId,
       direction,

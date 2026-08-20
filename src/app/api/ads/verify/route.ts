@@ -22,7 +22,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
     }
 
-    const result = AdRewardService.verifyAndCreditReward({
+    const result = await AdRewardService.verifyAndCreditReward({
       nonce: parsed.data.nonce,
       userId: session.user.id,
       signature: parsed.data.signature,

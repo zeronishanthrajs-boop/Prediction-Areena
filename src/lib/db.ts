@@ -1,42 +1,98 @@
-import Database from 'better-sqlite3';
-import path from 'path';
-import fs from 'fs';
+import { createClient, type Client, type ResultSet, type InArgs } from '@libsql/client';
 import { INITIAL_MARKETS, INITIAL_ACHIEVEMENTS, INITIAL_SPORTS_EVENTS } from './constants';
 import bcrypt from 'bcryptjs';
 
-const DB_PATH = process.env.DB_PATH || (process.env.VERCEL ? path.join('/tmp', 'prediction_arena.db') : path.join(process.cwd(), 'prediction_arena.db'));
-
-// Global singleton to prevent multiple instances during Next.js hot-reloading
+// Global singleton client to survive Next.js hot-reloading
 declare global {
   // eslint-disable-next-line no-var
-  var __dbInstance: Database.Database | undefined;
+  var __libsqlClient: Client | undefined;
+  // eslint-disable-next-line no-var
+  var __dbInitPromise: Promise<void> | undefined;
 }
 
-function getDatabase(): Database.Database {
-  if (global.__dbInstance) {
-    return global.__dbInstance;
+export function getDb(): Client {
+  if (global.__libsqlClient) {
+    return global.__libsqlClient;
   }
 
-  const db = new Database(DB_PATH);
-  try {
-    db.pragma('journal_mode = WAL');
-  } catch {
-    db.pragma('journal_mode = DELETE');
-  }
-  try {
-    db.pragma('foreign_keys = ON');
-  } catch {}
+  const url = process.env.TURSO_DATABASE_URL || 
+    (process.env.DB_PATH ? `file:${process.env.DB_PATH}` : 
+    (process.env.VERCEL ? 'file:/tmp/prediction_arena.db' : 'file:prediction_arena.db'));
 
-  initSchema(db);
-  seedInitialData(db);
+  const client = createClient({
+    url,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
 
-  global.__dbInstance = db;
-  return db;
+  global.__libsqlClient = client;
+  return client;
 }
 
-function initSchema(db: Database.Database) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
+// Helpers for extracting objects from ResultSet
+export function rowsToObjects<T = Record<string, unknown>>(result: ResultSet): T[] {
+  if (!result || !result.rows) return [];
+  return result.rows.map((row) => {
+    const obj: Record<string, unknown> = {};
+    result.columns.forEach((col, idx) => {
+      const val = (row as Record<string, unknown>)[col] !== undefined 
+        ? (row as Record<string, unknown>)[col] 
+        : (row as unknown as Record<number, unknown>)[idx];
+      obj[col] = val;
+    });
+    return obj as T;
+  });
+}
+
+export function firstRow<T = Record<string, unknown>>(result: ResultSet): T | null {
+  if (!result || !result.rows || result.rows.length === 0) return null;
+  const row = result.rows[0];
+  const obj: Record<string, unknown> = {};
+  result.columns.forEach((col, idx) => {
+    const val = (row as Record<string, unknown>)[col] !== undefined 
+      ? (row as Record<string, unknown>)[col] 
+      : (row as unknown as Record<number, unknown>)[idx];
+    obj[col] = val;
+  });
+  return obj as T;
+}
+
+export async function query<T = Record<string, unknown>>(sql: string, args: InArgs = []): Promise<T[]> {
+  const db = getDb();
+  await ensureDbInitialized();
+  const res = await db.execute({ sql, args });
+  return rowsToObjects<T>(res);
+}
+
+export async function queryOne<T = Record<string, unknown>>(sql: string, args: InArgs = []): Promise<T | null> {
+  const db = getDb();
+  await ensureDbInitialized();
+  const res = await db.execute({ sql, args });
+  return firstRow<T>(res);
+}
+
+export async function execute(sql: string, args: InArgs = []): Promise<ResultSet> {
+  const db = getDb();
+  await ensureDbInitialized();
+  return await db.execute({ sql, args });
+}
+
+export async function ensureDbInitialized(): Promise<void> {
+  if (global.__dbInitPromise) {
+    return global.__dbInitPromise;
+  }
+
+  global.__dbInitPromise = (async () => {
+    const db = getDb();
+    await initSchema(db);
+    await seedInitialData(db);
+  })();
+
+  return global.__dbInitPromise;
+}
+
+async function initSchema(db: Client) {
+  const tables = [
+    `CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
       email TEXT UNIQUE NOT NULL,
@@ -54,9 +110,8 @@ function initSchema(db: Database.Database) {
       role TEXT DEFAULT 'user',
       is_banned INTEGER DEFAULT 0,
       created_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS wallets (
+    )`,
+    `CREATE TABLE IF NOT EXISTS wallets (
       id TEXT PRIMARY KEY,
       user_id TEXT UNIQUE NOT NULL,
       balance INTEGER DEFAULT 10000,
@@ -64,9 +119,8 @@ function initSchema(db: Database.Database) {
       lifetime_spent INTEGER DEFAULT 0,
       updated_at TEXT NOT NULL,
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS wallet_transactions (
+    )`,
+    `CREATE TABLE IF NOT EXISTS wallet_transactions (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
       type TEXT NOT NULL,
@@ -77,9 +131,8 @@ function initSchema(db: Database.Database) {
       metadata TEXT,
       created_at TEXT NOT NULL,
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS markets (
+    )`,
+    `CREATE TABLE IF NOT EXISTS markets (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       symbol TEXT NOT NULL,
@@ -91,9 +144,8 @@ function initSchema(db: Database.Database) {
       category TEXT DEFAULT 'INDEX',
       change_24h REAL DEFAULT 0,
       updated_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS market_rounds (
+    )`,
+    `CREATE TABLE IF NOT EXISTS market_rounds (
       id TEXT PRIMARY KEY,
       market_id TEXT NOT NULL,
       round_number INTEGER NOT NULL,
@@ -106,9 +158,8 @@ function initSchema(db: Database.Database) {
       status TEXT NOT NULL,
       outcome TEXT,
       FOREIGN KEY(market_id) REFERENCES markets(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS predictions (
+    )`,
+    `CREATE TABLE IF NOT EXISTS predictions (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
       market_id TEXT NOT NULL,
@@ -124,9 +175,8 @@ function initSchema(db: Database.Database) {
       created_at TEXT NOT NULL,
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY(round_id) REFERENCES market_rounds(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS sports_events (
+    )`,
+    `CREATE TABLE IF NOT EXISTS sports_events (
       id TEXT PRIMARY KEY,
       category TEXT NOT NULL,
       title TEXT NOT NULL,
@@ -140,9 +190,8 @@ function initSchema(db: Database.Database) {
       draw_multiplier REAL,
       total_participants INTEGER DEFAULT 0,
       winning_option TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS sports_predictions (
+    )`,
+    `CREATE TABLE IF NOT EXISTS sports_predictions (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
       event_id TEXT NOT NULL,
@@ -154,9 +203,8 @@ function initSchema(db: Database.Database) {
       created_at TEXT NOT NULL,
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY(event_id) REFERENCES sports_events(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS friendships (
+    )`,
+    `CREATE TABLE IF NOT EXISTS friendships (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
       friend_id TEXT NOT NULL,
@@ -165,9 +213,8 @@ function initSchema(db: Database.Database) {
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY(friend_id) REFERENCES users(id) ON DELETE CASCADE,
       UNIQUE(user_id, friend_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS challenges (
+    )`,
+    `CREATE TABLE IF NOT EXISTS challenges (
       id TEXT PRIMARY KEY,
       creator_id TEXT NOT NULL,
       opponent_id TEXT NOT NULL,
@@ -181,9 +228,8 @@ function initSchema(db: Database.Database) {
       created_at TEXT NOT NULL,
       FOREIGN KEY(creator_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY(opponent_id) REFERENCES users(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS private_rooms (
+    )`,
+    `CREATE TABLE IF NOT EXISTS private_rooms (
       id TEXT PRIMARY KEY,
       room_code TEXT UNIQUE NOT NULL,
       name TEXT NOT NULL,
@@ -195,9 +241,8 @@ function initSchema(db: Database.Database) {
       participants_count INTEGER DEFAULT 1,
       created_at TEXT NOT NULL,
       FOREIGN KEY(creator_id) REFERENCES users(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS achievements (
+    )`,
+    `CREATE TABLE IF NOT EXISTS achievements (
       id TEXT PRIMARY KEY,
       code TEXT UNIQUE NOT NULL,
       title TEXT NOT NULL,
@@ -207,9 +252,8 @@ function initSchema(db: Database.Database) {
       icon TEXT NOT NULL,
       requirement_type TEXT NOT NULL,
       requirement_value INTEGER NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS user_achievements (
+    )`,
+    `CREATE TABLE IF NOT EXISTS user_achievements (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
       achievement_id TEXT NOT NULL,
@@ -217,9 +261,8 @@ function initSchema(db: Database.Database) {
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
       FOREIGN KEY(achievement_id) REFERENCES achievements(id) ON DELETE CASCADE,
       UNIQUE(user_id, achievement_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS ad_intents (
+    )`,
+    `CREATE TABLE IF NOT EXISTS ad_intents (
       nonce TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
       reward_type TEXT NOT NULL,
@@ -228,72 +271,89 @@ function initSchema(db: Database.Database) {
       expires_at INTEGER NOT NULL,
       created_at TEXT NOT NULL,
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS audit_logs (
+    )`,
+    `CREATE TABLE IF NOT EXISTS audit_logs (
       id TEXT PRIMARY KEY,
       user_id TEXT,
       action TEXT NOT NULL,
       details TEXT,
       ip_address TEXT,
       created_at TEXT NOT NULL
-    );
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_predictions_user ON predictions(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_predictions_round ON predictions(round_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_rounds_market ON market_rounds(market_id, status)`,
+    `CREATE INDEX IF NOT EXISTS idx_transactions_user ON wallet_transactions(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_users_rating ON users(rating)`
+  ];
 
-    CREATE INDEX IF NOT EXISTS idx_predictions_user ON predictions(user_id);
-    CREATE INDEX IF NOT EXISTS idx_predictions_round ON predictions(round_id);
-    CREATE INDEX IF NOT EXISTS idx_rounds_market ON market_rounds(market_id, status);
-    CREATE INDEX IF NOT EXISTS idx_transactions_user ON wallet_transactions(user_id);
-    CREATE INDEX IF NOT EXISTS idx_users_rating ON users(rating DESC);
-  `);
+  for (const sql of tables) {
+    try {
+      await db.execute(sql);
+    } catch (e) {
+      console.warn('Schema statement warning:', e);
+    }
+  }
 }
 
-function seedInitialData(db: Database.Database) {
+async function seedInitialData(db: Client) {
   // Seed Markets
-  const checkMarket = db.prepare('SELECT COUNT(*) as count FROM markets').get() as { count: number };
-  if (checkMarket.count === 0) {
-    const insertMarket = db.prepare(`
-      INSERT INTO markets (id, name, symbol, profile, base_price, current_price, volatility, status, category, change_24h, updated_at)
-      VALUES (@id, @name, @symbol, @profile, @base_price, @current_price, @volatility, @status, @category, @change_24h, @updated_at)
-    `);
-
+  const checkMarket = await db.execute('SELECT COUNT(*) as count FROM markets');
+  const marketCount = Number(firstRow(checkMarket)?.count || 0);
+  if (marketCount === 0) {
     for (const m of INITIAL_MARKETS) {
-      insertMarket.run(m);
-    }
-  }
-
-  // Seed Achievements
-  const checkAch = db.prepare('SELECT COUNT(*) as count FROM achievements').get() as { count: number };
-  if (checkAch.count === 0) {
-    const insertAch = db.prepare(`
-      INSERT INTO achievements (id, code, title, description, xp_reward, coin_reward, icon, requirement_type, requirement_value)
-      VALUES (@id, @code, @title, @description, @xp_reward, @coin_reward, @icon, @requirement_type, @requirement_value)
-    `);
-
-    for (const a of INITIAL_ACHIEVEMENTS) {
-      insertAch.run(a);
-    }
-  }
-
-  // Seed Sports
-  const checkSports = db.prepare('SELECT COUNT(*) as count FROM sports_events').get() as { count: number };
-  if (checkSports.count === 0) {
-    const insertSport = db.prepare(`
-      INSERT INTO sports_events (id, category, title, team_a, team_b, status, start_time, closing_time, team_a_multiplier, team_b_multiplier, draw_multiplier, total_participants, winning_option)
-      VALUES (@id, @category, @title, @team_a, @team_b, @status, @start_time, @closing_time, @team_a_multiplier, @team_b_multiplier, @draw_multiplier, @total_participants, @winning_option)
-    `);
-
-    for (const s of INITIAL_SPORTS_EVENTS) {
-      insertSport.run({
-        ...s,
-        draw_multiplier: s.draw_multiplier || null,
-        winning_option: s.winning_option || null,
+      await db.execute({
+        sql: `INSERT INTO markets (id, name, symbol, profile, base_price, current_price, volatility, status, category, change_24h, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [m.id, m.name, m.symbol, m.profile, m.base_price, m.current_price, m.volatility, m.status, m.category, m.change_24h, m.updated_at],
       });
     }
   }
 
-  // Seed Seed/Demo Users
-  const checkUsers = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
-  if (checkUsers.count === 0) {
+  // Seed Achievements
+  const checkAch = await db.execute('SELECT COUNT(*) as count FROM achievements');
+  const achCount = Number(firstRow(checkAch)?.count || 0);
+  if (achCount === 0) {
+    for (const a of INITIAL_ACHIEVEMENTS) {
+      await db.execute({
+        sql: `INSERT INTO achievements (id, code, title, description, xp_reward, coin_reward, icon, requirement_type, requirement_value)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [a.id, a.code, a.title, a.description, a.xp_reward, a.coin_reward, a.icon, a.requirement_type, a.requirement_value],
+      });
+    }
+  }
+
+  // Seed Sports
+  const checkSports = await db.execute('SELECT COUNT(*) as count FROM sports_events');
+  const sportsCount = Number(firstRow(checkSports)?.count || 0);
+  if (sportsCount === 0) {
+    for (const s of INITIAL_SPORTS_EVENTS) {
+      await db.execute({
+        sql: `INSERT INTO sports_events (id, category, title, team_a, team_b, status, start_time, closing_time, team_a_multiplier, team_b_multiplier, draw_multiplier, total_participants, winning_option)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          s.id,
+          s.category,
+          s.title,
+          s.team_a,
+          s.team_b,
+          s.status,
+          s.start_time,
+          s.closing_time,
+          s.team_a_multiplier,
+          s.team_b_multiplier,
+          s.draw_multiplier || null,
+          s.total_participants || 0,
+          s.winning_option || null,
+        ],
+      });
+    }
+  }
+
+  // Seed Demo Users
+  const checkUsers = await db.execute('SELECT COUNT(*) as count FROM users');
+  const usersCount = Number(firstRow(checkUsers)?.count || 0);
+  if (usersCount === 0) {
     const salt = bcrypt.genSaltSync(10);
     const passwordHash = bcrypt.hashSync('demo1234', salt);
 
@@ -399,74 +459,44 @@ function seedInitialData(db: Database.Database) {
         daily_streak: 2,
         role: 'user',
         balance: 12100,
-      }
+      },
     ];
-
-    const insertUser = db.prepare(`
-      INSERT INTO users (id, username, email, password_hash, avatar_url, xp, level, rating, current_streak, best_streak, total_predictions, total_wins, daily_streak, role, is_banned, created_at)
-      VALUES (@id, @username, @email, @password_hash, @avatar_url, @xp, @level, @rating, @current_streak, @best_streak, @total_predictions, @total_wins, @daily_streak, @role, 0, @created_at)
-    `);
-
-    const insertWallet = db.prepare(`
-      INSERT INTO wallets (id, user_id, balance, lifetime_earned, lifetime_spent, updated_at)
-      VALUES (@id, @user_id, @balance, @lifetime_earned, 0, @updated_at)
-    `);
-
-    const insertTx = db.prepare(`
-      INSERT INTO wallet_transactions (id, user_id, type, amount, balance_before, balance_after, idempotency_key, metadata, created_at)
-      VALUES (@id, @user_id, 'STARTING_GRANT', @amount, 0, @balance_after, @idempotency_key, @metadata, @created_at)
-    `);
 
     const now = new Date().toISOString();
 
     for (const u of demoUsers) {
-      insertUser.run({
-        id: u.id,
-        username: u.username,
-        email: u.email,
-        password_hash: u.password_hash,
-        avatar_url: u.avatar_url,
-        xp: u.xp,
-        level: u.level,
-        rating: u.rating,
-        current_streak: u.current_streak,
-        best_streak: u.best_streak,
-        total_predictions: u.total_predictions,
-        total_wins: u.total_wins,
-        daily_streak: u.daily_streak,
-        role: u.role,
-        created_at: now,
+      await db.execute({
+        sql: `INSERT INTO users (id, username, email, password_hash, avatar_url, xp, level, rating, current_streak, best_streak, total_predictions, total_wins, daily_streak, role, is_banned, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+        args: [u.id, u.username, u.email, u.password_hash, u.avatar_url, u.xp, u.level, u.rating, u.current_streak, u.best_streak, u.total_predictions, u.total_wins, u.daily_streak, u.role, now],
       });
 
-      insertWallet.run({
-        id: `wal-${u.id}`,
-        user_id: u.id,
-        balance: u.balance,
-        lifetime_earned: u.balance,
-        updated_at: now,
+      await db.execute({
+        sql: `INSERT INTO wallets (id, user_id, balance, lifetime_earned, lifetime_spent, updated_at)
+              VALUES (?, ?, ?, ?, 0, ?)`,
+        args: [`wal-${u.id}`, u.id, u.balance, u.balance, now],
       });
 
-      insertTx.run({
-        id: `tx-init-${u.id}`,
-        user_id: u.id,
-        amount: u.balance,
-        balance_after: u.balance,
-        idempotency_key: `init-grant-${u.id}`,
-        metadata: JSON.stringify({ reason: 'Initial Demo Seed Grant' }),
-        created_at: now,
+      await db.execute({
+        sql: `INSERT INTO wallet_transactions (id, user_id, type, amount, balance_before, balance_after, idempotency_key, metadata, created_at)
+              VALUES (?, ?, 'STARTING_GRANT', ?, 0, ?, ?, ?, ?)`,
+        args: [`tx-init-${u.id}`, u.id, u.balance, u.balance, `init-grant-${u.id}`, JSON.stringify({ reason: 'Initial Demo Seed Grant' }), now],
       });
     }
 
-    // Seed some friendship relationships
-    const insertFriend = db.prepare(`
-      INSERT OR IGNORE INTO friendships (id, user_id, friend_id, status, created_at)
-      VALUES (?, ?, ?, 'ACCEPTED', ?)
-    `);
-    insertFriend.run('fr-1', 'usr-admin-01', 'usr-alex-pro', now);
-    insertFriend.run('fr-2', 'usr-alex-pro', 'usr-admin-01', now);
-    insertFriend.run('fr-3', 'usr-admin-01', 'usr-elena-wave', now);
-    insertFriend.run('fr-4', 'usr-elena-wave', 'usr-admin-01', now);
+    // Seed friendships
+    const friendships = [
+      ['fr-1', 'usr-admin-01', 'usr-alex-pro'],
+      ['fr-2', 'usr-alex-pro', 'usr-admin-01'],
+      ['fr-3', 'usr-admin-01', 'usr-elena-wave'],
+      ['fr-4', 'usr-elena-wave', 'usr-admin-01'],
+    ];
+
+    for (const [id, uid, fid] of friendships) {
+      await db.execute({
+        sql: `INSERT OR IGNORE INTO friendships (id, user_id, friend_id, status, created_at) VALUES (?, ?, ?, 'ACCEPTED', ?)`,
+        args: [id, uid, fid, now],
+      });
+    }
   }
 }
-
-export const db = getDatabase();

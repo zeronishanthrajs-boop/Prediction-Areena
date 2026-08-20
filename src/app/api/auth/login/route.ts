@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { queryOne } from '@/lib/db';
 import { verifyPassword, createSessionToken, setSessionCookie } from '@/lib/auth';
-import { User } from '@/lib/types';
+import { User, Wallet } from '@/lib/types';
 import { z } from 'zod';
 
 const loginSchema = z.object({
@@ -20,10 +20,10 @@ export async function POST(request: Request) {
 
     const { identifier, password } = parsed.data;
 
-    const user = db.prepare(`
+    const user = await queryOne<User>(`
       SELECT * FROM users 
       WHERE (email = ? OR username = ?) AND is_banned = 0
-    `).get(identifier, identifier) as User | undefined;
+    `, [identifier, identifier]);
 
     if (!user || !user.password_hash) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
 
     await setSessionCookie(token);
 
-    const wallet = db.prepare('SELECT * FROM wallets WHERE user_id = ?').get(user.id);
+    const wallet = await queryOne<Wallet>('SELECT * FROM wallets WHERE user_id = ?', [user.id]);
 
     return NextResponse.json({
       success: true,

@@ -1,7 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
-import { db } from './db';
+import { queryOne } from './db';
 import { User, Wallet } from './types';
 
 const JWT_SECRET = new TextEncoder().encode(
@@ -56,10 +56,10 @@ export async function getSessionUser(): Promise<{ user: User; wallet: Wallet } |
   const payload = await verifySessionToken(token);
   if (!payload || !payload.userId) return null;
 
-  const user = db.prepare('SELECT * FROM users WHERE id = ? AND is_banned = 0').get(payload.userId) as User | undefined;
+  const user = await queryOne<User>('SELECT * FROM users WHERE id = ? AND is_banned = 0', [payload.userId]);
   if (!user) return null;
 
-  const wallet = db.prepare('SELECT * FROM wallets WHERE user_id = ?').get(payload.userId) as Wallet | undefined;
+  const wallet = await queryOne<Wallet>('SELECT * FROM wallets WHERE user_id = ?', [payload.userId]);
   if (!wallet) return null;
 
   return { user, wallet };

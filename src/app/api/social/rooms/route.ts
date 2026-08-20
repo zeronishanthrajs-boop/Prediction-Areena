@@ -19,7 +19,7 @@ const joinRoomSchema = z.object({
 
 export async function GET() {
   try {
-    const rooms = SocialService.getPrivateRooms();
+    const rooms = await SocialService.getPrivateRooms();
     return NextResponse.json({ rooms });
   } catch (error) {
     console.error('Rooms GET error:', error);
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
       }
 
-      const result = SocialService.joinPrivateRoom(parsed.data.roomCode, session.user.id);
+      const result = await SocialService.joinPrivateRoom(parsed.data.roomCode, session.user.id);
       if (!result.success) {
         return NextResponse.json({ error: result.error }, { status: 404 });
       }
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
     }
 
-    const result = SocialService.createPrivateRoom({
+    const result = await SocialService.createPrivateRoom({
       creatorId: session.user.id,
       name: parsed.data.name,
       marketId: parsed.data.marketId,

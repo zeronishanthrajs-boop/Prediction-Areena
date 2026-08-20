@@ -1,4 +1,4 @@
-import { db } from './db';
+import { query, queryOne, execute } from './db';
 import { SportsEvent, SportsPrediction } from './types';
 import { WalletService } from './walletService';
 import crypto from 'crypto';
@@ -7,29 +7,29 @@ export class SportsService {
   /**
    * Get list of sports events with category filter
    */
-  static getEvents(category?: string): SportsEvent[] {
+  static async getEvents(category?: string): Promise<SportsEvent[]> {
     if (category && category !== 'ALL') {
-      return db.prepare('SELECT * FROM sports_events WHERE category = ? ORDER BY start_time ASC').all(category) as SportsEvent[];
+      return await query<SportsEvent>('SELECT * FROM sports_events WHERE category = ? ORDER BY start_time ASC', [category]);
     }
-    return db.prepare('SELECT * FROM sports_events ORDER BY start_time ASC').all() as SportsEvent[];
+    return await query<SportsEvent>('SELECT * FROM sports_events ORDER BY start_time ASC');
   }
 
   /**
    * Place a sports prediction
    */
-  static placeSportsPrediction(params: {
+  static async placeSportsPrediction(params: {
     userId: string;
     eventId: string;
     selectedOption: string;
     stake: number;
-  }): { success: boolean; prediction?: SportsPrediction; error?: string } {
+  }): Promise<{ success: boolean; prediction?: SportsPrediction; error?: string }> {
     const { userId, eventId, selectedOption, stake } = params;
 
     if (stake < 100) {
       return { success: false, error: 'Minimum sports prediction stake is 100 Practice Coins' };
     }
 
-    const event = db.prepare('SELECT * FROM sports_events WHERE id = ?').get(eventId) as SportsEvent | undefined;
+    const event = await queryOne<SportsEvent>('SELECT * FROM sports_events WHERE id = ?', [eventId]);
     if (!event) return { success: false, error: 'Event not found' };
 
     if (event.status === 'RESOLVED') {
@@ -42,7 +42,7 @@ export class SportsService {
     else if (selectedOption === 'DRAW' && event.draw_multiplier) multiplier = event.draw_multiplier;
 
     // Deduct stake atomically
-    const debit = WalletService.mutateBalance({
+    const debit = await WalletService.mutateBalance({
       userId,
       amount: -stake,
       type: 'PREDICTION_STAKE',
@@ -56,13 +56,13 @@ export class SportsService {
     const id = `spred-${crypto.randomUUID()}`;
     const now = new Date().toISOString();
 
-    db.prepare(`
+    await execute(`
       INSERT INTO sports_predictions (id, user_id, event_id, selected_option, stake, multiplier, result, created_at)
       VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?)
-    `).run(id, userId, eventId, selectedOption, stake, multiplier, now);
+    `, [id, userId, eventId, selectedOption, stake, multiplier, now]);
 
     // Update participant count
-    db.prepare('UPDATE sports_events SET total_participants = total_participants + 1 WHERE id = ?').run(eventId);
+    await execute('UPDATE sports_events SET total_participants = total_participants + 1 WHERE id = ?', [eventId]);
 
     const prediction: SportsPrediction = {
       id,
@@ -81,14 +81,14 @@ export class SportsService {
   /**
    * Get user's active sports predictions
    */
-  static getUserSportsPredictions(userId: string): SportsPrediction[] {
-    return db.prepare(`
+  static async getUserSportsPredictions(userId: string): Promise<SportsPrediction[]> {
+    return await query<SportsPrediction>(`
       SELECT sp.*, se.title as event_title, se.team_a, se.team_b, se.category
       FROM sports_predictions sp
       JOIN sports_events se ON sp.event_id = se.id
       WHERE sp.user_id = ?
       ORDER BY sp.created_at DESC
       LIMIT 20
-    `).all(userId) as SportsPrediction[];
+    `, [userId]);
   }
 }

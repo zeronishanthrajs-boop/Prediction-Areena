@@ -1,21 +1,21 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { queryOne } from '@/lib/db';
 import { createSessionToken, setSessionCookie } from '@/lib/auth';
-import { User } from '@/lib/types';
+import { User, Wallet } from '@/lib/types';
 
 export async function POST(request: Request) {
   try {
     const { role } = await request.json().catch(() => ({ role: 'user' }));
 
-    let user: User | undefined;
+    let user: User | null = null;
     if (role === 'admin') {
-      user = db.prepare('SELECT * FROM users WHERE role = ? LIMIT 1').get('admin') as User | undefined;
+      user = await queryOne<User>('SELECT * FROM users WHERE role = ? LIMIT 1', ['admin']);
     } else {
-      user = db.prepare('SELECT * FROM users WHERE username = ? LIMIT 1').get('Alex_Quant') as User | undefined;
+      user = await queryOne<User>('SELECT * FROM users WHERE username = ? LIMIT 1', ['Alex_Quant']);
     }
 
     if (!user) {
-      user = db.prepare('SELECT * FROM users LIMIT 1').get() as User | undefined;
+      user = await queryOne<User>('SELECT * FROM users LIMIT 1');
     }
 
     if (!user) {
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
     await setSessionCookie(token);
 
-    const wallet = db.prepare('SELECT * FROM wallets WHERE user_id = ?').get(user.id);
+    const wallet = await queryOne<Wallet>('SELECT * FROM wallets WHERE user_id = ?', [user.id]);
 
     return NextResponse.json({
       success: true,

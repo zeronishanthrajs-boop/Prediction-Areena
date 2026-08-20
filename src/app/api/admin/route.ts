@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { query, queryOne, execute } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
 
 export async function GET() {
@@ -9,30 +9,37 @@ export async function GET() {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    const totalUsers = (db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number }).count;
-    const totalPredictions = (db.prepare('SELECT COUNT(*) as count FROM predictions').get() as { count: number }).count;
-    const totalVolume = (db.prepare('SELECT SUM(stake) as total FROM predictions').get() as { total: number | null }).total || 0;
-    const totalCoinsCirculating = (db.prepare('SELECT SUM(balance) as total FROM wallets').get() as { total: number | null }).total || 0;
+    const totalUsersRow = await queryOne<{ count: number }>('SELECT COUNT(*) as count FROM users');
+    const totalUsers = totalUsersRow?.count || 0;
 
-    const users = db.prepare(`
+    const totalPredsRow = await queryOne<{ count: number }>('SELECT COUNT(*) as count FROM predictions');
+    const totalPredictions = totalPredsRow?.count || 0;
+
+    const totalVolRow = await queryOne<{ total: number | null }>('SELECT SUM(stake) as total FROM predictions');
+    const totalVolume = totalVolRow?.total || 0;
+
+    const totalCoinsRow = await queryOne<{ total: number | null }>('SELECT SUM(balance) as total FROM wallets');
+    const totalCoinsCirculating = totalCoinsRow?.total || 0;
+
+    const users = await query(`
       SELECT u.*, w.balance, w.lifetime_earned, w.lifetime_spent 
       FROM users u
       LEFT JOIN wallets w ON u.id = w.user_id
       ORDER BY u.created_at DESC
       LIMIT 20
-    `).all();
+    `);
 
-    const markets = db.prepare('SELECT * FROM markets').all();
-    const recentPredictions = db.prepare(`
+    const markets = await query('SELECT * FROM markets');
+    const recentPredictions = await query(`
       SELECT p.*, u.username, m.name as market_name
       FROM predictions p
       JOIN users u ON p.user_id = u.id
       JOIN markets m ON p.market_id = m.id
       ORDER BY p.created_at DESC
       LIMIT 20
-    `).all();
+    `);
 
-    const auditLogs = db.prepare('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 30').all();
+    const auditLogs = await query('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 30');
 
     return NextResponse.json({
       metrics: {
@@ -63,25 +70,25 @@ export async function POST(request: Request) {
     const { action, marketId, volatility, profile, status, targetUserId, isBanned, adjustmentCoins } = body;
 
     if (action === 'UPDATE_MARKET') {
-      db.prepare(`
+      await execute(`
         UPDATE markets 
         SET volatility = COALESCE(?, volatility), 
             profile = COALESCE(?, profile), 
             status = COALESCE(?, status),
             updated_at = ?
         WHERE id = ?
-      `).run(volatility, profile, status, new Date().toISOString(), marketId);
+      `, [volatility, profile, status, new Date().toISOString(), marketId]);
 
       return NextResponse.json({ success: true, message: 'Market updated' });
     }
 
     if (action === 'MODERATE_USER') {
-      db.prepare('UPDATE users SET is_banned = ? WHERE id = ?').run(isBanned ? 1 : 0, targetUserId);
+      await execute('UPDATE users SET is_banned = ? WHERE id = ?', [isBanned ? 1 : 0, targetUserId]);
       return NextResponse.json({ success: true, message: 'User updated' });
     }
 
     if (action === 'ADJUST_COINS') {
-      db.prepare('UPDATE wallets SET balance = balance + ? WHERE user_id = ?').run(adjustmentCoins, targetUserId);
+      await execute('UPDATE wallets SET balance = balance + ? WHERE user_id = ?', [adjustmentCoins, targetUserId]);
       return NextResponse.json({ success: true, message: 'Balance adjusted' });
     }
 

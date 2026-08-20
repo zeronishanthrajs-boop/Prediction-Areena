@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50', 10);
 
-    const transactions = WalletService.getTransactions(session.user.id, limit);
+    const transactions = await WalletService.getTransactions(session.user.id, limit);
     return NextResponse.json({ transactions });
   } catch (error) {
     console.error('Wallet transactions error:', error);

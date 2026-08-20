@@ -11,7 +11,7 @@ export async function POST(request: Request) {
 
     const { doubleReward } = await request.json().catch(() => ({ doubleReward: false }));
 
-    const result = WalletService.claimDailyReward(session.user.id, Boolean(doubleReward));
+    const result = await WalletService.claimDailyReward(session.user.id, Boolean(doubleReward));
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }

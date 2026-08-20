@@ -7,12 +7,12 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category') || undefined;
 
-    const events = SportsService.getEvents(category);
+    const events = await SportsService.getEvents(category);
     const session = await getSessionUser();
 
     let userPredictions: unknown[] = [];
     if (session) {
-      userPredictions = SportsService.getUserSportsPredictions(session.user.id);
+      userPredictions = await SportsService.getUserSportsPredictions(session.user.id);
     }
 
     return NextResponse.json({ events, userPredictions });

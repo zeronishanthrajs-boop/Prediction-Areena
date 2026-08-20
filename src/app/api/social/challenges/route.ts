@@ -16,7 +16,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const challenges = SocialService.getUserChallenges(session.user.id);
+    const challenges = await SocialService.getUserChallenges(session.user.id);
     return NextResponse.json({ challenges });
   } catch (error) {
     console.error('Challenges GET error:', error);
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
     }
 
-    const result = SocialService.createChallenge({
+    const result = await SocialService.createChallenge({
       creatorId: session.user.id,
       opponentId: parsed.data.opponentId,
       marketId: parsed.data.marketId,

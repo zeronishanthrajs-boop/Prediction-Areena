@@ -1,6 +1,7 @@
-import { db } from './db';
+import { query, queryOne, execute, ensureDbInitialized } from './db';
 import { Market, MarketRound, MarketTick, MarketProfile } from './types';
 import { PredictionService } from './predictionService';
+import { INITIAL_MARKETS } from './constants';
 
 interface MarketState {
   market: Market;
@@ -19,7 +20,7 @@ class MarketEngine {
   private isInitialized = false;
 
   private constructor() {
-    this.init();
+    this.bootstrap();
   }
 
   public static getInstance(): MarketEngine {
@@ -29,25 +30,36 @@ class MarketEngine {
     return MarketEngine.instance;
   }
 
-  private init() {
+  private async bootstrap() {
     if (this.isInitialized) return;
     this.isInitialized = true;
 
-    // Load active markets from DB
-    const markets = db.prepare("SELECT * FROM markets WHERE status = 'ACTIVE'").all() as Market[];
+    try {
+      await ensureDbInitialized();
+      await this.init();
+    } catch (err) {
+      console.error('MarketEngine bootstrap error:', err);
+      // Fallback with INITIAL_MARKETS in memory
+      this.initFallback();
+    }
 
+    this.startTicker();
+  }
+
+  private async init() {
+    const markets = await query<Market>("SELECT * FROM markets WHERE status = 'ACTIVE'");
+    const activeMarkets = markets.length > 0 ? markets : INITIAL_MARKETS;
     const now = Date.now();
 
-    for (const m of markets) {
-      // Find or create current active round
-      let activeRound = db.prepare(`
+    for (const m of activeMarkets) {
+      let activeRound = await queryOne<MarketRound>(`
         SELECT * FROM market_rounds 
         WHERE market_id = ? AND status IN ('OPEN', 'LOCKED') 
         ORDER BY start_time DESC LIMIT 1
-      `).get(m.id) as MarketRound | undefined;
+      `, [m.id]);
 
       if (!activeRound || activeRound.end_time <= now) {
-        activeRound = this.createNewRound(m.id, m.current_price, now);
+        activeRound = await this.createNewRound(m.id, m.current_price, now);
       }
 
       // Generate seed history ticks
@@ -75,9 +87,49 @@ class MarketEngine {
         trend: 0,
       });
     }
+  }
 
-    // Start 500ms ticker loop
-    this.startTicker();
+  private initFallback() {
+    const now = Date.now();
+    for (const m of INITIAL_MARKETS) {
+      const activeRound: MarketRound = {
+        id: `rnd-${m.id}-1-${now}`,
+        market_id: m.id,
+        round_number: 1,
+        start_time: now,
+        lock_time: now + 25000,
+        end_time: now + 30000,
+        start_price: m.current_price,
+        lock_price: null,
+        end_price: null,
+        status: 'OPEN',
+        outcome: null,
+      };
+
+      const seedTicks: MarketTick[] = [];
+      let simulated = m.current_price;
+      for (let i = 60; i >= 0; i--) {
+        const tickTime = now - i * 500;
+        const delta = (Math.random() - 0.49) * m.current_price * m.volatility;
+        simulated = Math.max(1, simulated + delta);
+        seedTicks.push({
+          market_id: m.id,
+          price: Number(simulated.toFixed(2)),
+          change: Number(delta.toFixed(2)),
+          timestamp: tickTime,
+        });
+      }
+
+      this.marketStates.set(m.id, {
+        market: m,
+        currentPrice: m.current_price,
+        previousPrice: m.current_price,
+        recentTicks: seedTicks,
+        activeRound,
+        momentum: 0,
+        trend: 0,
+      });
+    }
   }
 
   private startTicker() {
@@ -99,7 +151,7 @@ class MarketEngine {
       state.previousPrice = state.currentPrice;
       state.currentPrice = newPrice;
 
-      // Add to recent ticks (buffer last 120 ticks = 60s history)
+      // Add to recent ticks (buffer last 150 ticks)
       state.recentTicks.push({
         market_id: marketId,
         price: newPrice,
@@ -115,36 +167,57 @@ class MarketEngine {
       const round = state.activeRound;
 
       if (round.status === 'OPEN' && now >= round.lock_time) {
-        // Transition to LOCKED (5 seconds before settlement)
         round.status = 'LOCKED';
         round.lock_price = newPrice;
-        db.prepare(`
+        execute(`
           UPDATE market_rounds 
           SET status = 'LOCKED', lock_price = ? 
           WHERE id = ?
-        `).run(newPrice, round.id);
+        `, [newPrice, round.id]).catch((e) => console.warn('Error locking round in DB:', e));
       } else if (now >= round.end_time) {
-        // Transition to RESOLVED & Settle Predictions
         round.status = 'RESOLVED';
         round.end_price = newPrice;
         const outcome = newPrice > round.start_price ? 'UP' : newPrice < round.start_price ? 'DOWN' : 'FLAT';
         round.outcome = outcome;
 
-        db.prepare(`
+        const resolvedRoundId = round.id;
+        const startPrice = round.start_price;
+
+        execute(`
           UPDATE market_rounds 
           SET status = 'RESOLVED', end_price = ?, outcome = ? 
           WHERE id = ?
-        `).run(newPrice, outcome, round.id);
+        `, [newPrice, outcome, resolvedRoundId]).catch((e) => console.warn('Error resolving round in DB:', e));
 
-        // Resolve all predictions for this round
-        try {
-          PredictionService.resolveRound(round.id, round.start_price, newPrice, outcome);
-        } catch (e) {
-          console.error(`Error resolving round ${round.id}:`, e);
-        }
+        // Resolve predictions
+        PredictionService.resolveRound(resolvedRoundId, startPrice, newPrice, outcome).catch((e) => {
+          console.error(`Error resolving predictions for round ${resolvedRoundId}:`, e);
+        });
 
-        // Start next round immediately
-        state.activeRound = this.createNewRound(marketId, newPrice, now);
+        // Start next round immediately in memory
+        const nextRoundNumber = round.round_number + 1;
+        const nextRoundId = `rnd-${marketId}-${nextRoundNumber}-${now}`;
+        const nextRound: MarketRound = {
+          id: nextRoundId,
+          market_id: marketId,
+          round_number: nextRoundNumber,
+          start_time: now,
+          lock_time: now + 25000,
+          end_time: now + 30000,
+          start_price: newPrice,
+          lock_price: null,
+          end_price: null,
+          status: 'OPEN',
+          outcome: null,
+        };
+
+        state.activeRound = nextRound;
+
+        execute(`
+          INSERT INTO market_rounds (id, market_id, round_number, start_time, lock_time, end_time, start_price, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [nextRound.id, nextRound.market_id, nextRound.round_number, nextRound.start_time, nextRound.lock_time, nextRound.end_time, nextRound.start_price, nextRound.status])
+        .catch((e) => console.warn('Error inserting new round in DB:', e));
       }
     }
   }
@@ -157,27 +230,23 @@ class MarketEngine {
 
     switch (profile) {
       case 'STABLE': {
-        // Mean-reverting Gaussian walk
         const meanPull = (market.base_price - currentPrice) / market.base_price * 0.05;
         const shock = (Math.random() - 0.5) * vol;
         deltaPercent = meanPull + shock;
         break;
       }
       case 'VOLATILE': {
-        // Larger jumps with fat-tail shocks
         const fatTail = Math.random() < 0.1 ? (Math.random() - 0.5) * 3 : 1;
         const shock = (Math.random() - 0.5) * vol * 2.2 * fatTail;
         deltaPercent = shock;
         break;
       }
       case 'MOMENTUM': {
-        // Positive auto-correlation
         state.momentum = state.momentum * 0.75 + (Math.random() - 0.48) * vol * 1.5;
         deltaPercent = state.momentum;
         break;
       }
       case 'REVERSAL': {
-        // Oscillating cycles
         state.trend = (state.trend + 0.15) % (Math.PI * 2);
         const wave = Math.sin(state.trend) * vol * 1.2;
         const noise = (Math.random() - 0.5) * vol * 0.5;
@@ -186,7 +255,6 @@ class MarketEngine {
       }
       case 'CHAOS':
       default: {
-        // Regime-switching random walk
         const shock = (Math.random() - 0.5) * vol * 2.8;
         deltaPercent = shock;
         break;
@@ -194,23 +262,21 @@ class MarketEngine {
     }
 
     const calculated = currentPrice * (1 + deltaPercent);
-    // Ensure precision based on scale
-    const decimals = market.base_price < 500 ? 2 : 2;
-    return Number(Math.max(1, calculated).toFixed(decimals));
+    return Number(Math.max(1, calculated).toFixed(2));
   }
 
-  private createNewRound(marketId: string, startPrice: number, now: number): MarketRound {
-    const lastRound = db.prepare(`
+  private async createNewRound(marketId: string, startPrice: number, now: number): Promise<MarketRound> {
+    const lastRound = await queryOne<{ round_number: number }>(`
       SELECT round_number FROM market_rounds 
       WHERE market_id = ? 
       ORDER BY round_number DESC LIMIT 1
-    `).get(marketId) as { round_number: number } | undefined;
+    `, [marketId]);
 
     const roundNumber = (lastRound?.round_number || 0) + 1;
     const roundId = `rnd-${marketId}-${roundNumber}-${now}`;
     const startTime = now;
-    const lockTime = now + 25000; // 25s (lock betting)
-    const endTime = now + 30000;  // 30s (settle)
+    const lockTime = now + 25000;
+    const endTime = now + 30000;
 
     const round: MarketRound = {
       id: roundId,
@@ -226,10 +292,10 @@ class MarketEngine {
       outcome: null,
     };
 
-    db.prepare(`
+    await execute(`
       INSERT INTO market_rounds (id, market_id, round_number, start_time, lock_time, end_time, start_price, status)
-      VALUES (@id, @market_id, @round_number, @start_time, @lock_time, @end_time, @start_price, @status)
-    `).run(round);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, [round.id, round.market_id, round.round_number, round.start_time, round.lock_time, round.end_time, round.start_price, round.status]);
 
     return round;
   }

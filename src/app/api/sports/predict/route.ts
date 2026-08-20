@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
     }
 
-    const result = SportsService.placeSportsPrediction({
+    const result = await SportsService.placeSportsPrediction({
       userId: session.user.id,
       eventId: parsed.data.eventId,
       selectedOption: parsed.data.selectedOption,

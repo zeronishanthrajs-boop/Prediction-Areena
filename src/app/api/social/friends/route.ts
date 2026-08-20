@@ -13,12 +13,12 @@ export async function GET(request: Request) {
     const query = searchParams.get('q');
 
     if (query) {
-      const searchResults = SocialService.searchUsers(session.user.id, query);
+      const searchResults = await SocialService.searchUsers(session.user.id, query);
       return NextResponse.json({ users: searchResults });
     }
 
-    const friends = SocialService.getFriends(session.user.id);
-    const pendingRequests = SocialService.getPendingRequests(session.user.id);
+    const friends = await SocialService.getFriends(session.user.id);
+    const pendingRequests = await SocialService.getPendingRequests(session.user.id);
 
     return NextResponse.json({ friends, pendingRequests });
   } catch (error) {
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
     if (action === 'SEND') {
       if (!targetUserId) return NextResponse.json({ error: 'Target user required' }, { status: 400 });
-      const result = SocialService.sendFriendRequest(session.user.id, targetUserId);
+      const result = await SocialService.sendFriendRequest(session.user.id, targetUserId);
       if (!result.success) return NextResponse.json({ error: result.error }, { status: 400 });
       return NextResponse.json({ success: true });
     }
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       if (!requestId || !body.response) {
         return NextResponse.json({ error: 'Request ID and response (ACCEPT/DECLINE) required' }, { status: 400 });
       }
-      const result = SocialService.respondToFriendRequest(requestId, session.user.id, body.response);
+      const result = await SocialService.respondToFriendRequest(requestId, session.user.id, body.response);
       if (!result.success) return NextResponse.json({ error: result.error }, { status: 400 });
       return NextResponse.json({ success: true });
     }

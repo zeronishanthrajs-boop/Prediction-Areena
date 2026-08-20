@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { query, queryOne } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
 import { getRankByXp } from '@/lib/constants';
 import { Achievement, DailyQuest } from '@/lib/types';
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'User ID required or not logged in' }, { status: 401 });
     }
 
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as {
+    const user = await queryOne<{
       id: string;
       username: string;
       email: string;
@@ -30,22 +30,22 @@ export async function GET(request: Request) {
       daily_streak: number;
       role: string;
       created_at: string;
-    } | undefined;
+    }>('SELECT * FROM users WHERE id = ?', [userId]);
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const wallet = db.prepare('SELECT * FROM wallets WHERE user_id = ?').get(userId);
+    const wallet = await queryOne('SELECT * FROM wallets WHERE user_id = ?', [userId]);
     const rankInfo = getRankByXp(user.xp);
     const accuracy = user.total_predictions > 0 ? Math.round((user.total_wins / user.total_predictions) * 100) : 0;
 
     // Fetch all achievements + user unlocked status
-    const allAchievements = db.prepare('SELECT * FROM achievements').all() as Achievement[];
-    const userUnlocked = db.prepare('SELECT achievement_id, unlocked_at FROM user_achievements WHERE user_id = ?').all(userId) as Array<{
+    const allAchievements = await query<Achievement>('SELECT * FROM achievements');
+    const userUnlocked = await query<{
       achievement_id: string;
       unlocked_at: string;
-    }>;
+    }>('SELECT achievement_id, unlocked_at FROM user_achievements WHERE user_id = ?', [userId]);
 
     const unlockedMap = new Map(userUnlocked.map((u) => [u.achievement_id, u.unlocked_at]));
 

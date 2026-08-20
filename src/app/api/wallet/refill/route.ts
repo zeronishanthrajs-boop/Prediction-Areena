@@ -9,7 +9,7 @@ export async function POST() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const result = WalletService.refillEmptyBalance(session.user.id);
+    const result = await WalletService.refillEmptyBalance(session.user.id);
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
