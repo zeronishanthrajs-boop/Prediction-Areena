@@ -104,45 +104,42 @@ export default function SportsPage() {
   const stakeOptions = [100, 250, 500, 1000, 2500];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 animate-fade-in">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-6 animate-fade-in pb-24 sm:pb-8">
       
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-[#0d111a] via-[#1a1426] to-[#0d111a] border border-orange-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-bold uppercase tracking-wider">
-            <Flame className="w-3.5 h-3.5" /> Sports Prediction Arena
+      <div className="bg-gradient-to-r from-[#0d111a] via-[#1a1426] to-[#0d111a] border border-orange-500/30 rounded-2xl sm:rounded-3xl p-4 sm:p-8 shadow-2xl relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="space-y-1 sm:space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-bold uppercase tracking-wider">
+              <Flame className="w-3.5 h-3.5" /> Sports Prediction Arena
+            </div>
+            <h1 className="text-xl sm:text-4xl font-black text-white">
+              Call Real-World Matches
+            </h1>
+            <p className="hidden sm:block text-xs sm:text-sm text-slate-400 max-w-xl">
+              Pick winners across Cricket, Football, Basketball, Tennis and Esports using virtual Practice Coins.
+            </p>
           </div>
-          <h1 className="text-2xl sm:text-4xl font-black text-white">
-            Call Real-World Matches
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-400 max-w-xl">
-            Pick winners across Cricket, Football, Basketball, Tennis and Esports using virtual Practice Coins. Multipliers update based on arena consensus.
-          </p>
-        </div>
 
-        <div className="flex items-center gap-2 bg-[#07090e]/80 border border-white/10 p-1.5 rounded-2xl text-xs font-bold">
-          <button
-            onClick={() => {
-              sounds.playClick();
-              setActiveTab('fixtures');
-            }}
-            className={`px-4 py-2 rounded-xl transition-all ${
-              activeTab === 'fixtures' ? 'bg-orange-500 text-black shadow-md' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Live & Upcoming ({events.length})
-          </button>
-          <button
-            onClick={() => {
-              sounds.playClick();
-              setActiveTab('my-calls');
-            }}
-            className={`px-4 py-2 rounded-xl transition-all ${
-              activeTab === 'my-calls' ? 'bg-orange-500 text-black shadow-md' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            My Calls ({userPredictions.length})
-          </button>
+          {/* Tab switcher — inline with header on desktop, below on mobile */}
+          <div className="flex items-center gap-2 bg-[#07090e]/80 border border-white/10 p-1.5 rounded-2xl text-xs font-bold self-start sm:self-auto">
+            <button
+              onClick={() => { sounds.playClick(); setActiveTab('fixtures'); }}
+              className={`px-3 sm:px-4 py-2 rounded-xl transition-all whitespace-nowrap ${
+                activeTab === 'fixtures' ? 'bg-orange-500 text-black shadow-md' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Live ({events.length})
+            </button>
+            <button
+              onClick={() => { sounds.playClick(); setActiveTab('my-calls'); }}
+              className={`px-3 sm:px-4 py-2 rounded-xl transition-all whitespace-nowrap ${
+                activeTab === 'my-calls' ? 'bg-orange-500 text-black shadow-md' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              My Calls ({userPredictions.length})
+            </button>
+          </div>
         </div>
       </div>
 

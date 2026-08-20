@@ -99,7 +99,7 @@ export default function ProfilePage() {
   const accuracy = user.total_predictions > 0 ? Math.round((user.total_wins / user.total_predictions) * 100) : 0;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 animate-fade-in">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-6 animate-fade-in pb-24 sm:pb-8">
       
       {/* Player Profile Hero Card */}
       <div className="bg-[#0d111a] border border-white/[0.08] rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">

@@ -78,7 +78,7 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8 animate-fade-in">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-6 sm:space-y-8 animate-fade-in pb-24 sm:pb-8">
       
       {/* Hero Section */}
       <section className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#0d111a] via-[#111625] to-[#07090e] border border-white/[0.08] p-6 sm:p-10 shadow-2xl">

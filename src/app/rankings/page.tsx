@@ -58,44 +58,44 @@ export default function RankingsPage() {
   const remainingEntries = entries.slice(3);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 animate-fade-in">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-6 animate-fade-in pb-24 sm:pb-8">
       
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-[#0d111a] via-[#1a1c26] to-[#0d111a] border border-amber-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="space-y-2">
+      <div className="bg-gradient-to-r from-[#0d111a] via-[#1a1c26] to-[#0d111a] border border-amber-500/30 rounded-2xl sm:rounded-3xl p-4 sm:p-8 shadow-2xl relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="space-y-1 sm:space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold uppercase tracking-wider">
             <Trophy className="w-3.5 h-3.5" /> Skill-Based Ranking System
           </div>
-          <h1 className="text-2xl sm:text-4xl font-black text-white">
+          <h1 className="text-xl sm:text-4xl font-black text-white">
             Arena Leaderboards
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 max-w-xl">
-            Ranked by Elo prediction skill rating, win streaks, and forecast accuracy — never simply by time spent or wallet balance.
+          <p className="hidden sm:block text-xs sm:text-sm text-slate-400 max-w-xl">
+            Ranked by Elo prediction skill rating, win streaks, and forecast accuracy.
           </p>
         </div>
+      </div>
 
-        {/* Tab switcher */}
-        <div className="flex items-center gap-1.5 bg-[#07090e]/80 border border-white/10 p-1.5 rounded-2xl overflow-x-auto no-scrollbar">
-          {tabs.map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  sounds.playClick();
-                  setActiveTab(tab.id as typeof activeTab);
-                }}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  isActive
-                    ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-md shadow-amber-500/20'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
+      {/* Tab switcher — separate scrollable row below header */}
+      <div className="flex items-center gap-1.5 bg-[#0d111a] border border-white/10 p-1.5 rounded-2xl overflow-x-auto no-scrollbar">
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => {
+                sounds.playClick();
+                setActiveTab(tab.id as typeof activeTab);
+              }}
+              className={`px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                isActive
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-md shadow-amber-500/20'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Top 3 Podium Section */}

@@ -252,18 +252,18 @@ export default function FriendsPage() {
 
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 animate-fade-in">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-6 animate-fade-in pb-24 sm:pb-8">
       
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#0d111a] via-[#1f162e] to-[#0d111a] border border-purple-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="space-y-2">
+      <div className="bg-gradient-to-r from-[#0d111a] via-[#1f162e] to-[#0d111a] border border-purple-500/30 rounded-2xl sm:rounded-3xl p-4 sm:p-8 shadow-2xl relative overflow-hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="space-y-1 sm:space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-400 text-xs font-bold uppercase tracking-wider">
             <Users className="w-3.5 h-3.5" /> Social Arena Hub
           </div>
-          <h1 className="text-2xl sm:text-4xl font-black text-white">
+          <h1 className="text-xl sm:text-4xl font-black text-white">
             Friends & 1v1 Showdowns
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 max-w-xl">
+          <p className="hidden sm:block text-xs sm:text-sm text-slate-400 max-w-xl">
             Battle your friends head-to-head in multi-round market showdowns, compare forecasting accuracy, and host private rooms.
           </p>
         </div>
@@ -275,10 +275,10 @@ export default function FriendsPage() {
             sounds.playClick();
             setIsCreateRoomOpen(true);
           }}
-          className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 text-white font-extrabold text-xs shadow-lg shadow-purple-500/25 transition-all transform active:scale-95"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 text-white font-extrabold text-xs shadow-lg shadow-purple-500/25 transition-all transform active:scale-95"
         >
           <Lock className="w-4 h-4" />
-          <span>Create Private Room</span>
+          <span>Create Room</span>
         </button>
       </div>
 
@@ -295,30 +295,30 @@ export default function FriendsPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 bg-[#0d111a] border border-white/10 p-1.5 rounded-2xl w-fit text-xs font-bold">
+      <div className="grid grid-cols-3 gap-1 bg-[#0d111a] border border-white/10 p-1.5 rounded-2xl text-xs font-bold">
         <button
           onClick={() => { sounds.playClick(); setActiveTab('friends'); }}
-          className={`px-4 py-2 rounded-xl transition-all ${
+          className={`px-2 sm:px-4 py-2 rounded-xl transition-all text-center ${
             activeTab === 'friends' ? 'bg-purple-500 text-white shadow-md' : 'text-slate-400 hover:text-white'
           }`}
         >
-          Friends ({friends.length})
+          <span className="hidden sm:inline">Friends </span>({friends.length})
         </button>
         <button
           onClick={() => { sounds.playClick(); setActiveTab('challenges'); }}
-          className={`px-4 py-2 rounded-xl transition-all ${
+          className={`px-2 sm:px-4 py-2 rounded-xl transition-all text-center ${
             activeTab === 'challenges' ? 'bg-purple-500 text-white shadow-md' : 'text-slate-400 hover:text-white'
           }`}
         >
-          1v1 Battles ({challenges.length})
+          <span className="hidden sm:inline">1v1 Battles </span><span className="sm:hidden">Battles </span>({challenges.length})
         </button>
         <button
           onClick={() => { sounds.playClick(); setActiveTab('rooms'); }}
-          className={`px-4 py-2 rounded-xl transition-all ${
+          className={`px-2 sm:px-4 py-2 rounded-xl transition-all text-center ${
             activeTab === 'rooms' ? 'bg-purple-500 text-white shadow-md' : 'text-slate-400 hover:text-white'
           }`}
         >
-          Private Rooms ({rooms.length})
+          <span className="hidden sm:inline">Private Rooms </span><span className="sm:hidden">Rooms </span>({rooms.length})
         </button>
       </div>
 
