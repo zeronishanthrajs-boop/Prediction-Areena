@@ -85,7 +85,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="font-extrabold text-base tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-cyan-300 font-sans">
                 PREDICTION<span className="text-cyan-400">ARENA</span>
               </span>
-              <span className="text-[10px] text-slate-400 tracking-widest uppercase -mt-1 font-semibold">
+              <span className="hidden sm:block text-[10px] text-slate-400 tracking-widest uppercase -mt-1 font-semibold">
                 Social Simulator
               </span>
             </div>
@@ -131,10 +131,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <Coins className="w-3.5 h-3.5" />
               </div>
               <div className="flex flex-col">
-                <span className="text-[10px] text-amber-400/80 font-bold uppercase tracking-wider leading-none">
+                <span className="hidden sm:block text-[10px] text-amber-400/80 font-bold uppercase tracking-wider leading-none">
                   Practice Coins
                 </span>
-                <span className="font-mono-numbers text-sm font-bold text-amber-300 leading-tight">
+                <span className="font-mono-numbers text-xs sm:text-sm font-bold text-amber-300 leading-tight">
                   {wallet.balance.toLocaleString()}
                 </span>
               </div>

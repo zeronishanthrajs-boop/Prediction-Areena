@@ -240,9 +240,8 @@ function PlayPageContent() {
       {/* Main Arena Workspace (Chart on Left/Top, Prediction Controller on Right/Bottom) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         
-        {/* Left Column: Live Chart Screen */}
-        <div className="lg:col-span-8 flex flex-col gap-4">
-          
+        {/* 1. Live Chart Screen */}
+        <div className="lg:col-span-8 order-1 flex flex-col gap-4">
           <div className="bg-[#0d111a] border border-white/[0.08] rounded-3xl p-4 sm:p-6 shadow-2xl relative flex flex-col justify-between overflow-hidden">
             
             {/* Top Market Bar */}
@@ -299,8 +298,24 @@ function PlayPageContent() {
               </span>
             </div>
           </div>
+        </div>
 
-          {/* Recent Rounds Table */}
+        {/* 2. Prediction Control Panel (Right Column on Desktop, directly under Chart on Mobile) */}
+        <div className="lg:col-span-4 order-2 lg:order-3 flex flex-col gap-4">
+          <PredictionPanel
+            balance={wallet?.balance || 0}
+            activeRound={activeRound}
+            timeRemaining={timeRemaining}
+            lockRemaining={lockRemaining}
+            currentPrice={currentPrice}
+            activeUserPrediction={activePrediction}
+            onPlacePrediction={handlePlacePrediction}
+            isLoading={isSubmitting}
+          />
+        </div>
+
+        {/* 3. Recent Rounds Table (Under Prediction Control on Mobile, under Chart on Desktop) */}
+        <div className="lg:col-span-8 order-3 lg:order-2 flex flex-col gap-4">
           <div className="bg-[#0d111a] border border-white/[0.08] rounded-3xl p-4 sm:p-6">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -350,20 +365,8 @@ function PlayPageContent() {
           </div>
         </div>
 
-        {/* Right Column: Prediction Control Panel */}
-        <div className="lg:col-span-4 flex flex-col gap-4">
-          <PredictionPanel
-            balance={wallet?.balance || 0}
-            activeRound={activeRound}
-            timeRemaining={timeRemaining}
-            lockRemaining={lockRemaining}
-            currentPrice={currentPrice}
-            activeUserPrediction={activePrediction}
-            onPlacePrediction={handlePlacePrediction}
-            isLoading={isSubmitting}
-          />
-
-          {/* Quick Guide Card */}
+        {/* 4. Quick Guide Card (At the bottom) */}
+        <div className="lg:col-span-4 order-4 lg:order-4 flex flex-col gap-4">
           <div className="bg-[#0d111a] border border-white/[0.08] rounded-2xl p-4 space-y-3">
             <h4 className="text-xs font-bold text-slate-300 flex items-center gap-1.5 uppercase tracking-wider">
               <Zap className="w-3.5 h-3.5 text-cyan-400" /> How It Works
@@ -384,6 +387,7 @@ function PlayPageContent() {
             </ul>
           </div>
         </div>
+
       </div>
 
       {/* Result Modal when round settles */}
