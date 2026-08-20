@@ -8,11 +8,11 @@ import {
   TrendingDown, 
   Activity, 
   Clock, 
-  Flame, 
   ShieldCheck, 
   History,
   Coins,
-  AlertCircle
+  AlertCircle,
+  UserPlus
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { MarketChart } from '@/components/MarketChart';
@@ -21,6 +21,7 @@ import { ResultModal } from '@/components/ResultModal';
 import { sounds } from '@/lib/audio';
 import { Market, MarketRound, MarketTick, Prediction } from '@/lib/types';
 import { INITIAL_MARKETS } from '@/lib/constants';
+import { initGuestWallet, deductGuest, creditGuest, getGuestBalance } from '@/lib/guestWallet';
 
 function PlayPageContent() {
   const { user, wallet, refreshSession, openAuth } = useApp();
@@ -44,6 +45,16 @@ function PlayPageContent() {
   const [recentRounds, setRecentRounds] = useState<Array<Record<string, unknown>>>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+
+  // Guest (unauthenticated) wallet state — client-side only
+  const [guestBalance, setGuestBalance] = useState<number>(500);
+  const guestPredictionRef = useRef<{ direction: 'UP' | 'DOWN'; stake: number; entryPrice: number } | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setGuestBalance(initGuestWallet());
+    }
+  }, [user]);
 
   const prevRoundIdRef = useRef<string | null>(null);
 
@@ -100,6 +111,24 @@ function PlayPageContent() {
                 if (activePrediction) {
                   fetchUserLatestResult(activePrediction.id);
                 }
+                // Settle guest prediction client-side
+                if (!user && guestPredictionRef.current) {
+                  const gp = guestPredictionRef.current;
+                  const finalPrice = data.price as number;
+                  const won =
+                    (gp.direction === 'UP' && finalPrice > gp.entryPrice) ||
+                    (gp.direction === 'DOWN' && finalPrice < gp.entryPrice);
+                  if (won) {
+                    const payout = Math.floor(gp.stake * 1.9);
+                    creditGuest(payout);
+                    setFeedbackMessage({ type: 'success', text: `Guest WIN! +${payout} Practice Coins (simulated)` });
+                  } else {
+                    setFeedbackMessage({ type: 'error', text: `Guest LOSS — ${gp.stake} coins lost (simulated)` });
+                  }
+                  setGuestBalance(getGuestBalance());
+                  guestPredictionRef.current = null;
+                  setActivePrediction(null);
+                }
                 loadMarketData(selectedMarketId);
               }
               prevRoundIdRef.current = newRound.id;
@@ -154,11 +183,39 @@ function PlayPageContent() {
 
   // Place UP or DOWN prediction
   const handlePlacePrediction = async (direction: 'UP' | 'DOWN', stake: number) => {
+    // ── Guest path: client-side simulation only ──────────────────────────────
     if (!user) {
-      openAuth();
+      if (guestBalance < stake) {
+        setFeedbackMessage({ type: 'error', text: 'Not enough trial coins. Create a free account to keep playing!' });
+        return;
+      }
+      const deducted = deductGuest(stake);
+      if (!deducted) {
+        setFeedbackMessage({ type: 'error', text: 'Insufficient trial balance.' });
+        return;
+      }
+      setGuestBalance(getGuestBalance());
+      // Store guest prediction for settlement when round ends
+      guestPredictionRef.current = { direction, stake, entryPrice: currentPrice };
+      // Build a synthetic prediction object so PredictionPanel shows "locked in" state
+      const fakePred: Prediction = {
+        id: `guest-${Date.now()}`,
+        user_id: 'guest',
+        market_id: selectedMarketId,
+        round_id: activeRound?.id || '',
+        direction,
+        stake,
+        entry_price: currentPrice,
+        result: 'PENDING',
+        payout: 0,
+        created_at: new Date().toISOString(),
+      };
+      setActivePrediction(fakePred);
+      setFeedbackMessage({ type: 'success', text: `Trial prediction locked: ${direction} @ ${currentPrice.toFixed(2)}` });
       return;
     }
 
+    // ── Authenticated path: real API ─────────────────────────────────────────
     setIsSubmitting(true);
     setFeedbackMessage(null);
 
@@ -224,6 +281,28 @@ function PlayPageContent() {
           );
         })}
       </div>
+
+      {/* ── Guest Trial Banner ──────────────────────────────────────────── */}
+      {!user && (
+        <div className="flex items-center justify-between gap-3 bg-gradient-to-r from-amber-500/10 to-cyan-500/10 border border-amber-400/25 rounded-2xl px-4 py-2.5">
+          <div className="flex items-center gap-2 min-w-0">
+            <Coins className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            <span className="text-xs text-slate-300 font-medium">
+              <span className="text-amber-300 font-bold">Guest Trial</span>
+              {' — '}
+              <span className="font-mono font-bold text-amber-300">{guestBalance}</span>
+              <span className="text-slate-400"> trial coins remaining</span>
+            </span>
+          </div>
+          <button
+            onClick={() => { sounds.playClick(); openAuth(); }}
+            className="flex-shrink-0 flex items-center gap-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-extrabold text-[11px] px-3 py-1.5 rounded-xl shadow-md transition-all active:scale-95"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>Get 10,000 Coins Free</span>
+          </button>
+        </div>
+      )}
 
       {/* Feedback Banner */}
       {feedbackMessage && (
@@ -301,9 +380,9 @@ function PlayPageContent() {
         </div>
 
         {/* 2. Prediction Control Panel (Right Column on Desktop, directly under Chart on Mobile) */}
-        <div className="lg:col-span-4 order-2 lg:order-3 flex flex-col gap-4">
+        <div className="lg:col-span-4 order-2 lg:order-3 flex flex-col gap-4 relative">
           <PredictionPanel
-            balance={wallet?.balance || 0}
+            balance={user ? (wallet?.balance || 0) : guestBalance}
             activeRound={activeRound}
             timeRemaining={timeRemaining}
             lockRemaining={lockRemaining}
@@ -312,6 +391,28 @@ function PlayPageContent() {
             onPlacePrediction={handlePlacePrediction}
             isLoading={isSubmitting}
           />
+          {/* Out-of-coins gate for guests */}
+          {!user && guestBalance < 50 && (
+            <div className="absolute inset-0 bg-[#07090e]/90 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center gap-4 p-6 text-center z-10 animate-fade-in">
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
+                <Coins className="w-7 h-7 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-white mb-1">Trial Coins Used Up!</h3>
+                <p className="text-xs text-slate-400 max-w-[220px]">
+                  Create a free account to get <strong className="text-amber-300">10,000 Practice Coins</strong>, full leaderboard tracking, daily bonuses, and more.
+                </p>
+              </div>
+              <button
+                onClick={() => { sounds.playClick(); openAuth(); }}
+                className="flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-extrabold text-sm px-5 py-3 rounded-xl shadow-lg shadow-cyan-500/25 transition-all active:scale-95"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Create Free Account</span>
+              </button>
+              <p className="text-[10px] text-slate-600">No payment required · 100% free</p>
+            </div>
+          )}
         </div>
 
         {/* 3. Recent Rounds Table (Under Prediction Control on Mobile, under Chart on Desktop) */}
