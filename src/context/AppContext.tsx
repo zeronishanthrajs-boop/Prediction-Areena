@@ -130,7 +130,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           onLogout={handleLogout}
         />
 
-        <main className="flex-1 pb-20 md:pb-8">
+        <main className="flex-1 pb-16 md:pb-6">
           {children}
         </main>
 

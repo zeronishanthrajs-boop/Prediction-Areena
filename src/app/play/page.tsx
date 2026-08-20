@@ -193,10 +193,10 @@ function PlayPageContent() {
   const isUp = activeRound ? currentPrice >= activeRound.start_price : true;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-5 animate-fade-in">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-6 space-y-3 sm:space-y-5 animate-fade-in pb-24 sm:pb-8">
       
       {/* Market Selector Tabs Bar */}
-      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-1">
         {markets.map((m) => {
           const isSelected = m.id === selectedMarketId;
           return (
@@ -207,15 +207,15 @@ function PlayPageContent() {
                 setSelectedMarketId(m.id);
                 setActivePrediction(null);
               }}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all ${
+              className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all ${
                 isSelected
                   ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/40 shadow-lg shadow-cyan-500/10 scale-[1.02]'
                   : 'bg-[#0d111a] text-slate-400 hover:text-slate-200 border border-white/[0.06] hover:bg-white/[0.04]'
               }`}
             >
               <span className="font-mono text-cyan-300 font-extrabold">{m.symbol}</span>
-              <span>{m.name}</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
+              <span className="hidden sm:inline">{m.name}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
                 m.change_24h >= 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
               }`}>
                 {m.change_24h >= 0 ? `+${m.change_24h}%` : `${m.change_24h}%`}
@@ -238,7 +238,7 @@ function PlayPageContent() {
       )}
 
       {/* Main Arena Workspace (Chart on Left/Top, Prediction Controller on Right/Bottom) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5">
         
         {/* 1. Live Chart Screen */}
         <div className="lg:col-span-8 order-1 flex flex-col gap-4">
@@ -278,7 +278,7 @@ function PlayPageContent() {
             </div>
 
             {/* Canvas Chart Area */}
-            <div className="w-full h-72 sm:h-96 my-2 relative">
+            <div className="w-full h-48 sm:h-80 lg:h-96 my-2 relative">
               <MarketChart
                 ticks={ticks}
                 currentPrice={currentPrice}
