@@ -5,6 +5,8 @@ import { LogIn, UserPlus, Zap, Sparkles, X, Loader2 } from 'lucide-react';
 import { sounds } from '@/lib/audio';
 import { clearGuestWallet } from '@/lib/guestWallet';
 
+import { DEFAULT_MALE_AVATAR, DEFAULT_FEMALE_AVATAR } from '@/lib/avatars';
+
 interface AuthModalProps {
   onClose: () => void;
   onSuccess: () => void;
@@ -16,6 +18,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
+  const [avatarChoice, setAvatarChoice] = useState<'blank' | 'male' | 'female'>('blank');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,10 +58,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
     setError(null);
 
     try {
+      const avatarUrl = avatarChoice === 'male' 
+        ? DEFAULT_MALE_AVATAR 
+        : avatarChoice === 'female' 
+        ? DEFAULT_FEMALE_AVATAR 
+        : '';
+
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password }),
+        body: JSON.stringify({ username, email, password, avatarUrl }),
       });
 
       const data = await res.json();
@@ -208,6 +217,48 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
                 className="w-full bg-[#131926] border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"
               />
             </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-300 block mb-1.5">
+                Profile Avatar Choice
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => { sounds.playClick(); setAvatarChoice('blank'); }}
+                  className={`p-2 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1 transition-all ${
+                    avatarChoice === 'blank'
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400 ring-1 ring-emerald-400/50'
+                      : 'bg-[#131926] text-slate-400 border-white/10 hover:border-white/20'
+                  }`}
+                >
+                  <span>👤 Blank</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { sounds.playClick(); setAvatarChoice('male'); }}
+                  className={`p-2 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1 transition-all ${
+                    avatarChoice === 'male'
+                      ? 'bg-cyan-500/20 text-cyan-300 border-cyan-400 ring-1 ring-cyan-400/50'
+                      : 'bg-[#131926] text-slate-400 border-white/10 hover:border-white/20'
+                  }`}
+                >
+                  <span>👨 Male</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { sounds.playClick(); setAvatarChoice('female'); }}
+                  className={`p-2 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1 transition-all ${
+                    avatarChoice === 'female'
+                      ? 'bg-purple-500/20 text-purple-300 border-purple-400 ring-1 ring-purple-400/50'
+                      : 'bg-[#131926] text-slate-400 border-white/10 hover:border-white/20'
+                  }`}
+                >
+                  <span>👩 Female</span>
+                </button>
+              </div>
+            </div>
+
             <button
               type="submit"
               disabled={loading}

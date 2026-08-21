@@ -15,19 +15,23 @@ import {
   Sparkles,
   ShieldCheck,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  Camera
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { sounds } from '@/lib/audio';
 import { Achievement, WalletTransaction, Prediction } from '@/lib/types';
+import { UserAvatar } from '@/components/UserAvatar';
+import { AvatarPickerModal } from '@/components/AvatarPickerModal';
 
 export default function ProfilePage() {
-  const { user, wallet, openAuth, logout } = useApp();
+  const { user, wallet, openAuth, logout, refreshSession } = useApp();
   const [profileData, setProfileData] = useState<Record<string, unknown> | null>(null);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [activeTab, setActiveTab] = useState<'achievements' | 'transactions' | 'predictions'>('achievements');
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
@@ -106,12 +110,24 @@ export default function ProfilePage() {
         <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-6">
           
           <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={user.avatar_url}
-              alt={user.username}
-              className="w-24 h-24 rounded-3xl object-cover ring-4 ring-cyan-500/40 shadow-xl shadow-cyan-500/20"
-            />
+            {/* Interactive Avatar with Hover Change Overlay */}
+            <div 
+              className="relative group cursor-pointer"
+              onClick={() => { sounds.playClick(); setIsAvatarModalOpen(true); }}
+              title="Click to change profile picture"
+            >
+              <UserAvatar
+                src={user.avatar_url}
+                alt={user.username}
+                fallbackName={user.username}
+                className="w-24 h-24 rounded-3xl ring-4 ring-cyan-500/40 shadow-xl shadow-cyan-500/20"
+              />
+              <div className="absolute inset-0 bg-black/60 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white gap-1 backdrop-blur-xs">
+                <Camera className="w-6 h-6 text-cyan-400" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-300">Change</span>
+              </div>
+            </div>
+
             <div className="space-y-1.5">
               <div className="flex items-center justify-center sm:justify-start gap-2">
                 <h1 className="text-2xl sm:text-3xl font-black text-white">{user.username}</h1>
@@ -125,6 +141,16 @@ export default function ProfilePage() {
               <span className="text-[11px] text-slate-400 block font-mono">
                 {user.email} • Member since {new Date(user.created_at).toLocaleDateString()}
               </span>
+              <div className="pt-1 flex justify-center sm:justify-start">
+                <button
+                  type="button"
+                  onClick={() => { sounds.playClick(); setIsAvatarModalOpen(true); }}
+                  className="text-[11px] font-bold px-3 py-1.5 rounded-xl bg-white/[0.05] hover:bg-cyan-500/20 text-slate-300 hover:text-cyan-300 border border-white/10 hover:border-cyan-400/40 transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
+                >
+                  <Camera className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Change Profile Picture</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -385,6 +411,19 @@ export default function ProfilePage() {
             </table>
           </div>
         </div>
+      )}
+
+      {/* Avatar Selection Modal */}
+      {user && (
+        <AvatarPickerModal
+          isOpen={isAvatarModalOpen}
+          currentAvatar={user.avatar_url || ''}
+          username={user.username}
+          onClose={() => setIsAvatarModalOpen(false)}
+          onSuccess={async () => {
+            await refreshSession();
+          }}
+        />
       )}
     </div>
   );

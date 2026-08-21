@@ -20,6 +20,7 @@ import {
 import { useApp } from '@/context/AppContext';
 import { sounds } from '@/lib/audio';
 import { Market, LeaderboardEntry, DailyQuest } from '@/lib/types';
+import { UserAvatar } from '@/components/UserAvatar';
 
 export default function HomePage() {
   const { user, wallet, openAuth, openDailyReward } = useApp();
@@ -436,11 +437,11 @@ export default function HomePage() {
                     }`}>
                       {player.rank}
                     </div>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <UserAvatar
                       src={player.avatar_url}
                       alt={player.username}
-                      className="w-8 h-8 rounded-xl object-cover ring-1 ring-white/10"
+                      fallbackName={player.username}
+                      className="w-8 h-8 rounded-xl ring-1 ring-white/10"
                     />
                     <div>
                       <span className="text-xs font-bold text-white block">{player.username}</span>

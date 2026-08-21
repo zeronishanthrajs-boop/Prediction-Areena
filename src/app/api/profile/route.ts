@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query, queryOne } from '@/lib/db';
+import { query, queryOne, execute } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
 import { getRankByXp } from '@/lib/constants';
 import { Achievement, DailyQuest } from '@/lib/types';
@@ -119,3 +119,32 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
+
+export async function PATCH(request: Request) {
+  try {
+    const session = await getSessionUser();
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const { avatarUrl } = body;
+
+    if (typeof avatarUrl !== 'string') {
+      return NextResponse.json({ error: 'Invalid avatar URL' }, { status: 400 });
+    }
+
+    const sanitizedUrl = avatarUrl.trim();
+
+    await execute('UPDATE users SET avatar_url = ? WHERE id = ?', [sanitizedUrl, session.user.id]);
+
+    return NextResponse.json({
+      success: true,
+      avatarUrl: sanitizedUrl,
+    });
+  } catch (error) {
+    console.error('Update avatar error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+

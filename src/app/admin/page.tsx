@@ -16,6 +16,7 @@ import {
 import { useApp } from '@/context/AppContext';
 import { sounds } from '@/lib/audio';
 import { Market, User } from '@/lib/types';
+import { UserAvatar } from '@/components/UserAvatar';
 
 export default function AdminPage() {
   const { user, openAuth } = useApp();
@@ -297,8 +298,12 @@ export default function AdminPage() {
                 <tr key={u.id} className="hover:bg-white/[0.02]">
                   <td className="py-3 px-3 font-sans">
                     <div className="flex items-center gap-2">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={u.avatar_url} alt="" className="w-6 h-6 rounded-lg object-cover" />
+                      <UserAvatar
+                        src={u.avatar_url}
+                        alt={u.username}
+                        fallbackName={u.username}
+                        className="w-6 h-6 rounded-lg ring-1 ring-white/10"
+                      />
                       <div>
                         <span className="font-bold text-white block">{u.username}</span>
                         <span className="text-[10px] text-slate-500">{u.email}</span>

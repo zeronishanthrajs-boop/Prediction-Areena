@@ -22,6 +22,8 @@ import {
 import { sounds } from '@/lib/audio';
 import { User, Wallet } from '@/lib/types';
 
+import { UserAvatar } from '@/components/UserAvatar';
+
 interface NavbarProps {
   user: User | null;
   wallet: Wallet | null;
@@ -175,11 +177,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={() => sounds.playClick()}
                 className="flex items-center gap-2 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-xl p-1.5 sm:px-2.5 sm:py-1.5 transition-all group"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <UserAvatar
                   src={user.avatar_url}
                   alt={user.username}
-                  className="w-7 h-7 rounded-lg object-cover ring-1 ring-cyan-400/40"
+                  fallbackName={user.username}
+                  className="w-7 h-7 rounded-lg ring-1 ring-cyan-400/40"
                 />
                 <div className="hidden lg:flex flex-col text-left">
                   <span className="text-xs font-bold text-slate-200 leading-none group-hover:text-cyan-400 transition-colors">

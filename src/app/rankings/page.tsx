@@ -18,6 +18,7 @@ import {
 import { useApp } from '@/context/AppContext';
 import { sounds } from '@/lib/audio';
 import { LeaderboardEntry } from '@/lib/types';
+import { UserAvatar } from '@/components/UserAvatar';
 
 export default function RankingsPage() {
   const { user } = useApp();
@@ -108,11 +109,11 @@ export default function RankingsPage() {
               <div className="w-10 h-10 rounded-full bg-slate-300 text-black font-black flex items-center justify-center -mt-10 mb-2 shadow-lg ring-4 ring-[#0d111a]">
                 2
               </div>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <UserAvatar
                 src={top3[1].avatar_url}
                 alt={top3[1].username}
-                className="w-16 h-16 rounded-2xl object-cover ring-2 ring-slate-400/50 mb-3"
+                fallbackName={top3[1].username}
+                className="w-16 h-16 rounded-2xl ring-2 ring-slate-400/50 mb-3"
               />
               <div>
                 <h3 className="text-base font-bold text-white">{top3[1].username}</h3>
@@ -131,11 +132,11 @@ export default function RankingsPage() {
               <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-300 text-black font-black flex items-center justify-center -mt-12 mb-2 shadow-xl ring-4 ring-[#0d111a] animate-bounce">
                 <Crown className="w-6 h-6 fill-current" />
               </div>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <UserAvatar
                 src={top3[0].avatar_url}
                 alt={top3[0].username}
-                className="w-20 h-20 rounded-2xl object-cover ring-4 ring-amber-400/80 mb-3 shadow-lg shadow-amber-500/20"
+                fallbackName={top3[0].username}
+                className="w-20 h-20 rounded-2xl ring-4 ring-amber-400/80 mb-3 shadow-lg shadow-amber-500/20"
               />
               <div>
                 <h3 className="text-lg font-black text-white flex items-center justify-center gap-1.5">
@@ -158,11 +159,11 @@ export default function RankingsPage() {
               <div className="w-10 h-10 rounded-full bg-amber-700 text-white font-black flex items-center justify-center -mt-10 mb-2 shadow-lg ring-4 ring-[#0d111a]">
                 3
               </div>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <UserAvatar
                 src={top3[2].avatar_url}
                 alt={top3[2].username}
-                className="w-16 h-16 rounded-2xl object-cover ring-2 ring-amber-700/50 mb-3"
+                fallbackName={top3[2].username}
+                className="w-16 h-16 rounded-2xl ring-2 ring-amber-700/50 mb-3"
               />
               <div>
                 <h3 className="text-base font-bold text-white">{top3[2].username}</h3>
@@ -213,11 +214,11 @@ export default function RankingsPage() {
 
                     <td className="py-3 px-3 font-sans">
                       <div className="flex items-center gap-2.5">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
+                        <UserAvatar
                           src={entry.avatar_url}
                           alt={entry.username}
-                          className="w-8 h-8 rounded-xl object-cover ring-1 ring-white/10"
+                          fallbackName={entry.username}
+                          className="w-8 h-8 rounded-xl ring-1 ring-white/10"
                         />
                         <div>
                           <span className="font-bold text-white block">

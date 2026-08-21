@@ -19,6 +19,7 @@ import { useApp } from '@/context/AppContext';
 import { sounds } from '@/lib/audio';
 import { Friendship, Challenge, PrivateRoom, User } from '@/lib/types';
 import { INITIAL_MARKETS } from '@/lib/constants';
+import { UserAvatar } from '@/components/UserAvatar';
 
 export default function FriendsPage() {
   const { user, openAuth } = useApp();
@@ -339,11 +340,11 @@ export default function FriendsPage() {
                   {pendingRequests.map((req) => (
                     <div key={req.id} className="py-2.5 flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={req.friend_avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'}
+                        <UserAvatar
+                          src={req.friend_avatar}
                           alt={req.friend_username}
-                          className="w-9 h-9 rounded-xl object-cover ring-1 ring-purple-400"
+                          fallbackName={req.friend_username}
+                          className="w-9 h-9 rounded-xl ring-1 ring-purple-400"
                         />
                         <div>
                           <span className="text-xs font-bold text-white block">{req.friend_username}</span>
@@ -387,11 +388,11 @@ export default function FriendsPage() {
                       className="bg-[#131926] border border-white/[0.06] rounded-2xl p-4 flex items-center justify-between gap-3"
                     >
                       <div className="flex items-center gap-3">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={f.friend_avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'}
+                        <UserAvatar
+                          src={f.friend_avatar}
                           alt={f.friend_username}
-                          className="w-10 h-10 rounded-xl object-cover ring-1 ring-white/10"
+                          fallbackName={f.friend_username}
+                          className="w-10 h-10 rounded-xl ring-1 ring-white/10"
                         />
                         <div>
                           <span className="text-xs font-bold text-white block">{f.friend_username}</span>
@@ -450,11 +451,11 @@ export default function FriendsPage() {
                 {searchResults.map((usr) => (
                   <div key={usr.id} className="py-2.5 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2.5">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+                      <UserAvatar
                         src={usr.avatar_url}
                         alt={usr.username}
-                        className="w-8 h-8 rounded-xl object-cover"
+                        fallbackName={usr.username}
+                        className="w-8 h-8 rounded-xl ring-1 ring-white/10"
                       />
                       <div>
                         <span className="text-xs font-bold text-white block">{usr.username}</span>
@@ -511,11 +512,11 @@ export default function FriendsPage() {
                   <div className="flex items-center justify-around my-2">
                     {/* Creator */}
                     <div className="flex flex-col items-center">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={ch.creator_avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150'}
-                        alt="Creator"
-                        className="w-10 h-10 rounded-xl object-cover mb-1 ring-1 ring-cyan-400/50"
+                      <UserAvatar
+                        src={ch.creator_avatar}
+                        alt={ch.creator_username || 'Creator'}
+                        fallbackName={ch.creator_username || 'Creator'}
+                        className="w-10 h-10 rounded-xl mb-1 ring-1 ring-cyan-400/50"
                       />
                       <span className="text-xs font-bold text-white">{ch.creator_username || 'Creator'}</span>
                       <span className="text-lg font-black text-amber-300 font-mono">{ch.creator_wins}</span>
@@ -525,11 +526,11 @@ export default function FriendsPage() {
 
                     {/* Opponent */}
                     <div className="flex flex-col items-center">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={ch.opponent_avatar || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150'}
-                        alt="Opponent"
-                        className="w-10 h-10 rounded-xl object-cover mb-1 ring-1 ring-purple-400/50"
+                      <UserAvatar
+                        src={ch.opponent_avatar}
+                        alt={ch.opponent_username || 'Opponent'}
+                        fallbackName={ch.opponent_username || 'Opponent'}
+                        className="w-10 h-10 rounded-xl mb-1 ring-1 ring-purple-400/50"
                       />
                       <span className="text-xs font-bold text-white">{ch.opponent_username || 'Opponent'}</span>
                       <span className="text-lg font-black text-amber-300 font-mono">{ch.opponent_wins}</span>
