@@ -194,7 +194,8 @@ export class WalletService {
   }
 
   /**
-   * Refill balance if user has run out of Practice Coins (< 100 coins)
+   * Refill / Boost balance anytime user watches an ad (+1,000 coins)
+   * Allowed unlimited times regardless of existing balance
    */
   static async refillEmptyBalance(userId: string): Promise<{
     success: boolean;
@@ -205,16 +206,12 @@ export class WalletService {
     const currentWallet = await this.getWallet(userId);
     if (!currentWallet) return { success: false, error: 'Wallet not found' };
 
-    if (currentWallet.balance >= 100) {
-      return { success: false, error: 'Balance is not empty. Refills are available when balance is below 100 coins.' };
-    }
-
     const REFILL_AMOUNT = 1000;
     const mutation = await this.mutateBalance({
       userId,
       amount: REFILL_AMOUNT,
       type: 'REFILL',
-      metadata: { reason: 'Rewarded ad refill (1,000 coins)' },
+      metadata: { reason: 'Rewarded ad coins boost (+1,000 coins)' },
     });
 
     if (!mutation.success) {

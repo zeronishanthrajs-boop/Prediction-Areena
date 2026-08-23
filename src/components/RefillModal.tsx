@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import { Video, Coins, ShieldCheck, X, Loader2, Sparkles, CheckCircle2, Play } from 'lucide-react';
@@ -72,7 +72,7 @@ export const RefillModal: React.FC<RefillModalProps> = ({ onClose, onRefill }) =
 
         <h2 className="text-xl font-black text-white">Watch Ad for Coins</h2>
         <p className="text-xs text-slate-400 mt-1">
-          Running low on virtual coins? Watch a short ad to claim an instant <strong className="text-amber-300">1,000 Practice Coins</strong> refill!
+          Want more coins? Watch a short ad to claim an instant <strong className="text-amber-300">+1,000 Practice Coins</strong> boost anytime!
         </p>
 
         {error && (
@@ -88,7 +88,7 @@ export const RefillModal: React.FC<RefillModalProps> = ({ onClose, onRefill }) =
             <span className="font-mono-numbers text-2xl font-black text-amber-300">+1,000 Coins</span>
           </div>
           <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5 text-cyan-400" /> 1 Ad = 1,000 Coins • Unlimited Refills
+            <Sparkles className="w-3.5 h-3.5 text-cyan-400" /> 1 Ad = +1,000 Coins • Watch Anytime
           </span>
         </div>
 
@@ -112,7 +112,7 @@ export const RefillModal: React.FC<RefillModalProps> = ({ onClose, onRefill }) =
         ) : successAmount ? (
           <div className="w-full py-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-emerald-300 text-xs font-bold flex items-center justify-center gap-2 animate-fade-in">
             <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <span>+1,000 Practice Coins Refilled!</span>
+            <span>+1,000 Practice Coins Added to Wallet!</span>
           </div>
         ) : (
           <div className="w-full flex flex-col gap-2">
@@ -129,13 +129,13 @@ export const RefillModal: React.FC<RefillModalProps> = ({ onClose, onRefill }) =
               ) : (
                 <>
                   <Play className="w-4 h-4 fill-current" />
-                  <span>Watch Ad to Get 1,000 Coins</span>
+                  <span>Watch Ad to Get +1,000 Coins</span>
                 </>
               )}
             </button>
 
             <span className="text-[11px] text-slate-500 flex items-center justify-center gap-1 mt-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" /> Unlimited refills whenever balance &lt; 100 coins
+              <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" /> 100% Free Virtual Currency • Boost your balance anytime
             </span>
           </div>
         )}

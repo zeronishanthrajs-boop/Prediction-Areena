@@ -125,7 +125,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-slate-500" /> : <Volume2 className="w-4 h-4 text-cyan-400" />}
           </button>
-
+          
           {/* Practice Coin Balance Chip — desktop only */}
           {user && wallet && (
             <div className="hidden sm:flex items-center gap-2 bg-[#131926]/90 border border-amber-500/30 rounded-xl px-2.5 py-1.5 shadow-md shadow-amber-500/5">
@@ -140,15 +140,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {wallet.balance.toLocaleString()}
                 </span>
               </div>
-              {wallet.balance < 500 && (
-                <button
-                  onClick={() => { sounds.playClick(); onOpenRefill(); }}
-                  className="ml-1 text-cyan-400 hover:text-cyan-300"
-                  title="Free Refill"
-                >
-                  <PlusCircle className="w-4 h-4" />
-                </button>
-              )}
+              <button
+                onClick={() => { sounds.playClick(); onOpenRefill(); }}
+                className="ml-1 text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-extrabold text-[10px] bg-cyan-500/10 hover:bg-cyan-500/20 px-1.5 py-0.5 rounded-md border border-cyan-500/30 transition-all active:scale-95"
+                title="Watch Ad for +1,000 Coins"
+              >
+                <PlusCircle className="w-3.5 h-3.5" />
+                <span>+1K</span>
+              </button>
             </div>
           )}
 
@@ -164,10 +163,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="bg-purple-500/40 text-purple-200 text-[10px] px-1.5 py-0.5 rounded-md font-extrabold">
                 {user.daily_streak || 0}D
               </span>
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-cyan-400 rounded-full animate-ping" />
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-cyan-400 rounded-full border-2 border-[#07090e]" />
             </button>
           )}
+
+          {/* Sound Mute Toggle — desktop only */}
+          <button
+            onClick={handleSoundToggle}
+            className="hidden sm:flex p-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-400 hover:text-slate-200 transition-colors"
+            title={isMuted ? 'Unmute Sound FX' : 'Mute Sound FX'}
+          >
+            {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-cyan-400" />}
+          </button>
 
           {/* User Account / Auth */}
           {user ? (
@@ -203,14 +209,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           ) : (
             <button
               onClick={() => { sounds.playClick(); onOpenAuth(); }}
-              className="flex items-center gap-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-extrabold text-xs px-3 py-2 rounded-xl shadow-lg shadow-cyan-500/25 transition-all transform active:scale-95"
+              className="flex items-center gap-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black text-xs font-extrabold px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl shadow-md shadow-cyan-500/20 transition-all transform active:scale-95"
             >
-              <LogIn className="w-4 h-4" />
+              <LogIn className="w-3.5 h-3.5" />
               <span>Sign In</span>
             </button>
           )}
 
-          {/* Hamburger — only on mobile (md:hidden), since BottomNav handles main navigation */}
+          {/* Hamburger — only on mobile (md:hidden) */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="md:hidden w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-slate-400"
@@ -230,14 +236,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               {wallet.balance.toLocaleString()}
             </span>
             <span className="text-[9px] text-amber-500/60 uppercase tracking-wide flex-shrink-0">PC</span>
-            {wallet.balance < 500 && (
-              <button
-                onClick={() => { sounds.playClick(); onOpenRefill(); }}
-                className="ml-auto text-cyan-400 flex-shrink-0"
-              >
-                <PlusCircle className="w-3.5 h-3.5" />
-              </button>
-            )}
+            <button
+              onClick={() => { sounds.playClick(); onOpenRefill(); }}
+              className="ml-auto text-cyan-400 hover:text-cyan-300 flex items-center gap-0.5 text-[9px] font-extrabold bg-cyan-500/10 px-1 py-0.5 rounded border border-cyan-500/30 flex-shrink-0"
+              title="Watch Ad for +1,000 Coins"
+            >
+              <PlusCircle className="w-3 h-3" />
+              <span>+1K</span>
+            </button>
           </div>
 
           {/* Streak chip */}
