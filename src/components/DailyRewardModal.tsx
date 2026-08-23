@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Gift, Sparkles, Video, CheckCircle, X, Coins, Loader2 } from 'lucide-react';
 import { sounds } from '@/lib/audio';
 import { DAILY_REWARDS_SCHEDULE } from '@/lib/constants';
+import { GptRewardedAdService } from '@/lib/gpt';
 
 interface DailyRewardModalProps {
   currentStreak: number;
@@ -39,13 +40,25 @@ export const DailyRewardModal: React.FC<DailyRewardModalProps> = ({
     }
   };
 
-  const handleWatchAdDouble = async () => {
-    sounds.playClick();
+  const completeDoubleReward = async () => {
+    setIsWatchingAd(false);
+    setIsClaiming(true);
+
+    const res = await onClaim(true);
+    setIsClaiming(false);
+    if (res.success && res.rewardAmount) {
+      sounds.playWinFanfare();
+      setClaimedAmount(res.rewardAmount);
+    } else {
+      setError(res.error || 'Failed to verify ad reward');
+    }
+  };
+
+  const startSimulatedAdPlayer = () => {
     setIsWatchingAd(true);
     setAdProgress(0);
     setError(null);
 
-    // Mock Rewarded Ad simulation (3 seconds with progress bar)
     const interval = setInterval(() => {
       setAdProgress((prev) => {
         if (prev >= 100) {
@@ -58,18 +71,34 @@ export const DailyRewardModal: React.FC<DailyRewardModalProps> = ({
 
     setTimeout(async () => {
       clearInterval(interval);
-      setIsWatchingAd(false);
-      setIsClaiming(true);
-
-      const res = await onClaim(true);
-      setIsClaiming(false);
-      if (res.success && res.rewardAmount) {
-        sounds.playWinFanfare();
-        setClaimedAmount(res.rewardAmount);
-      } else {
-        setError(res.error || 'Failed to verify ad reward');
-      }
+      await completeDoubleReward();
     }, 3000);
+  };
+
+  const handleWatchAdDouble = async () => {
+    sounds.playClick();
+    setError(null);
+    setIsClaiming(true);
+
+    try {
+      const handled = await GptRewardedAdService.showRewardedAd({
+        onGranted: async () => {
+          await completeDoubleReward();
+        },
+        onError: () => {
+          startSimulatedAdPlayer();
+        },
+        onDismissed: () => {
+          setIsClaiming(false);
+        },
+      });
+
+      if (!handled) {
+        startSimulatedAdPlayer();
+      }
+    } catch {
+      startSimulatedAdPlayer();
+    }
   };
 
   return (

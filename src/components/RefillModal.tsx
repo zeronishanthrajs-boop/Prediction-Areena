@@ -1,8 +1,9 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import { Video, Coins, ShieldCheck, X, Loader2, Sparkles, CheckCircle2, Play } from 'lucide-react';
 import { sounds } from '@/lib/audio';
+import { GptRewardedAdService } from '@/lib/gpt';
 
 interface RefillModalProps {
   onClose: () => void;
@@ -16,13 +17,28 @@ export const RefillModal: React.FC<RefillModalProps> = ({ onClose, onRefill }) =
   const [successAmount, setSuccessAmount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handleWatchAdRefill = async () => {
-    sounds.playClick();
+  const completeReward = async () => {
+    setIsWatchingAd(false);
+    setIsSubmitting(true);
+    const res = await onRefill();
+    setIsSubmitting(false);
+
+    if (res.success) {
+      sounds.playWinFanfare();
+      setSuccessAmount(res.refillAmount || 1000);
+      setTimeout(() => {
+        onClose();
+      }, 2000);
+    } else {
+      setError(res.error || 'Refill failed');
+    }
+  };
+
+  const startSimulatedAdPlayer = () => {
     setIsWatchingAd(true);
     setAdProgress(0);
     setError(null);
 
-    // Rewarded Ad simulation (3 seconds progress bar)
     const interval = setInterval(() => {
       setAdProgress((prev) => {
         if (prev >= 100) {
@@ -35,26 +51,39 @@ export const RefillModal: React.FC<RefillModalProps> = ({ onClose, onRefill }) =
 
     setTimeout(async () => {
       clearInterval(interval);
-      setIsWatchingAd(false);
-      setIsSubmitting(true);
-
-      const res = await onRefill();
-      setIsSubmitting(false);
-
-      if (res.success) {
-        sounds.playWinFanfare();
-        setSuccessAmount(res.refillAmount || 1000);
-        setTimeout(() => {
-          onClose();
-        }, 2000);
-      } else {
-        setError(res.error || 'Refill failed');
-      }
+      await completeReward();
     }, 3000);
   };
 
+  const handleWatchAdRefill = async () => {
+    sounds.playClick();
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      // 1. Try Google Publisher Tag official Rewarded Web Ad
+      const handled = await GptRewardedAdService.showRewardedAd({
+        onGranted: async () => {
+          await completeReward();
+        },
+        onError: () => {
+          startSimulatedAdPlayer();
+        },
+        onDismissed: () => {
+          setIsSubmitting(false);
+        },
+      });
+
+      if (!handled) {
+        startSimulatedAdPlayer();
+      }
+    } catch {
+      startSimulatedAdPlayer();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
       <div className="w-full max-w-sm bg-[#0d111a] border border-cyan-500/30 rounded-3xl p-6 shadow-2xl relative flex flex-col items-center text-center">
         
         {/* Close button */}
@@ -124,7 +153,7 @@ export const RefillModal: React.FC<RefillModalProps> = ({ onClose, onRefill }) =
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Crediting 1,000 Coins...</span>
+                  <span>Loading Ad...</span>
                 </>
               ) : (
                 <>

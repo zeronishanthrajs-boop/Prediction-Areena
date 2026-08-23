@@ -24,6 +24,12 @@ export default function RootLayout({
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9844234281912376"
           crossOrigin="anonymous"
         />
+        {/* Google Publisher Tag (GPT) for Rewarded Web Ads */}
+        <script
+          async
+          src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"
+          crossOrigin="anonymous"
+        />
       </head>
       <body className="bg-[#07090e] text-slate-100 min-h-screen">
         <AppProvider>{children}</AppProvider>
