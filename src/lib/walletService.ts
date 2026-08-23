@@ -209,12 +209,12 @@ export class WalletService {
       return { success: false, error: 'Balance is not empty. Refills are available when balance is below 100 coins.' };
     }
 
-    const REFILL_AMOUNT = 1500;
+    const REFILL_AMOUNT = 1000;
     const mutation = await this.mutateBalance({
       userId,
       amount: REFILL_AMOUNT,
       type: 'REFILL',
-      metadata: { reason: 'Empty balance emergency refill' },
+      metadata: { reason: 'Rewarded ad refill (1,000 coins)' },
     });
 
     if (!mutation.success) {

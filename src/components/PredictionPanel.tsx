@@ -293,7 +293,7 @@ export const PredictionPanel: React.FC<PredictionPanelProps> = ({
       {balance < 50 && (
         <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs p-3 rounded-xl">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span>Low Practice Coins! Click the <strong>+ Refill</strong> button above or claim your daily streak reward.</span>
+          <span>Low Practice Coins! Click the <strong>+ Refill</strong> button above to watch an ad for 1,000 free coins, or claim your daily streak reward.</span>
         </div>
       )}
     </div>
